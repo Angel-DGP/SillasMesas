@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario - Adimentos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #06b6d4;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --radius: 0.5rem;
+            --radius-lg: 0.75rem;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .hidden { display: none !important; }
+
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+        }
+
+        .login-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .login-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+
+        .login-subtitle {
+            color: var(--gray-600);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 1px solid var(--gray-200);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            color: var(--gray-500);
+        }
+
+        .btn-icon:hover {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            margin-top: 1rem;
+            display: none;
+        }
+
+        /* Main Screen */
+        .main-screen {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: white;
+            box-shadow: var(--shadow-sm);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .datetime {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            background: var(--gray-100);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid var(--gray-200);
+            padding: 1.5rem 0;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background: var(--gray-100);
+            color: var(--gray-900);
+        }
+
+        .nav-link.active {
+            background: #eef2ff;
+            color: var(--primary);
+            border-left-color: var(--primary);
+        }
+
+        .nav-icon {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            height: calc(100vh - 80px);
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        /* KPIs */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .kpi-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .kpi-card:nth-child(1) .kpi-icon { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
+        .kpi-card:nth-child(2) .kpi-icon { background: linear-gradient(135deg, var(--warning), #f97316); }
+        .kpi-card:nth-child(3) .kpi-icon { background: linear-gradient(135deg, var(--info), #0891b2); }
+        .kpi-card:nth-child(4) .kpi-icon { background: linear-gradient(135deg, var(--success), #059669); }
+
+        .kpi-content h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+        }
+
+        .kpi-content p {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: var(--gray-50);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-100);
+            color: var(--gray-800);
+        }
+
+        tr:hover {
+            background: var(--gray-50);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-sin-retirar-no-cancelado {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-sin-retirar-cancelado {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-retirado-no-cancelado {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .status-retirado-cancelado {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filters input,
+        .filters select {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            background: white;
+        }
+
+        .filters input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Proforma Items */
+        .proforma-item-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            align-items: end;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+            border: 1px solid var(--gray-200);
+        }
+
+        .proforma-item-row select,
+        .proforma-item-row input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            background: white;
+        }
+
+        .proforma-totals {
+            margin-top: 1rem;
+            padding: 1.5rem;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.5rem 0;
+            padding: 0.5rem 0;
+        }
+
+        .total-final {
+            font-weight: 700;
+            font-size: 1.125rem;
+            border-top: 2px solid var(--gray-300);
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--gray-200);
+            }
+            
+            .nav-menu {
+                display: flex;
+                overflow-x: auto;
+            }
+            
+            .nav-item {
+                margin-bottom: 0;
+                margin-right: 0.25rem;
+            }
+            
+            .nav-link {
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+            }
+            
+            .nav-link.active {
+                border-left: none;
+                border-bottom-color: var(--primary);
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+            
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <div class="login-icon">
+                <i class="fas fa-warehouse"></i>
+            </div>
+            <h1 class="login-title">Sistema de Inventario</h1>
+            <p class="login-subtitle">Adimentos para Eventos</p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password" class="form-label">Contraseña de Administrador</label>
+                    <input type="password" id="password" class="form-input" value="admin123" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Iniciar Sesión
+                </button>
+            </form>
+            <div id="loginError" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Pantalla Principal -->
+    <div id="mainScreen" class="main-screen hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="header-icon">
+                    <i class="fas fa-warehouse"></i>
+                </div>
+                <h1 class="header-title">Sistema de Inventario</h1>
+            </div>
+            <div class="header-right">
+                <span id="currentDateTime" class="datetime"></span>
+                <button id="logoutBtn" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <!-- Sidebar -->
+            <nav class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#" data-section="dashboard" class="nav-link active">
+                            <i class="fas fa-tachometer-alt nav-icon"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="inventory" class="nav-link">
+                            <i class="fas fa-boxes nav-icon"></i>
+                            Inventario
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="proformas" class="nav-link">
+                            <i class="fas fa-file-invoice nav-icon"></i>
+                            Proformas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="movements" class="nav-link">
+                            <i class="fas fa-exchange-alt nav-icon"></i>
+                            Movimientos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="reports" class="nav-link">
+                            <i class="fas fa-chart-bar nav-icon"></i>
+                            Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" data-section="settings" class="nav-link">
+                            <i class="fas fa-cog nav-icon"></i>
+                            Configuración
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Contenido Principal -->
+            <main class="main-content">
+                <!-- Dashboard -->
+                <section id="dashboard" class="content-section active">
+                    <div class="section-header">
+                        <h2 class="section-title">Dashboard</h2>
+                    </div>
+                    
+                    <!-- KPIs -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <h3 id="totalItems">0</h3>
+                                <p>Total Ítems</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <h3 id="committedItems">0</h3>
+                                <p>Comprometidos</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <h3 id="pendingProformas">0</h3>
+                                <p>Proformas Pendientes</p>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <h3 id="totalIncome">$0</h3>
+                                <p>Ingresos Totales</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Proformas Recientes -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Proformas Recientes</h3>
+                        </div>
+                        <div class="table-container">
+                            <table id="recentProformasTable">
+                                <thead>
+                                    <tr>
+                                        <th>Número</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Inventario -->
+                <section id="inventory" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Gestión de Inventario</h2>
+                        <button id="addItemBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Nuevo Ítem
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <input type="text" id="searchItems" placeholder="Buscar por nombre o código..." class="form-input">
+                        <select id="categoryFilter" class="form-input">
+                            <option value="">Todas las categorías</option>
+                        </select>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="inventoryTable">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Categoría</th>
+                                    <th>Total</th>
+                                    <th>Comprometido</th>
+                                    <th>Disponible</th>
+                                    <th>Ubicación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Proformas -->
+                <section id="proformas" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Gestión de Proformas</h2>
+                        <button id="addProformaBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Nueva Proforma
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <input type="text" id="searchProformas" placeholder="Buscar por número o cliente..." class="form-input">
+                        <select id="statusFilter" class="form-input">
+                            <option value="">Todos los estados</option>
+                            <option value="sin_retirar_no_cancelado">Sin retirar y no cancelado</option>
+                            <option value="sin_retirar_cancelado">Sin retirar y cancelado</option>
+                            <option value="retirado_no_cancelado">Retirado y no cancelado</option>
+                            <option value="retirado_cancelado">Retirado y cancelado</option>
+                        </select>
+                        <input type="date" id="dateFromFilter" class="form-input">
+                        <input type="date" id="dateToFilter" class="form-input">
+                    </div>
+
+                    <div class="table-container">
+                        <table id="proformasTable">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Movimientos -->
+                <section id="movements" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Movimientos de Inventario</h2>
+                        <button id="addMovementBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Registrar Entrada
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <select id="movementTypeFilter" class="form-input">
+                            <option value="">Todos los tipos</option>
+                            <option value="entrada">Entrada</option>
+                            <option value="salida">Salida</option>
+                        </select>
+                        <input type="date" id="movementDateFrom" class="form-input">
+                        <input type="date" id="movementDateTo" class="form-input">
+                    </div>
+
+                    <div class="table-container">
+                        <table id="movementsTable">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ítem</th>
+                                    <th>Tipo</th>
+                                    <th>Cantidad</th>
+                                    <th>Motivo</th>
+                                    <th>Nota</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Reportes -->
+                <section id="reports" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Reportes y Exportación</h2>
+                    </div>
+                    
+                    <div class="kpi-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Exportar Inventario</h3>
+                            </div>
+                            <p>Descargar inventario actual en formato CSV o JSON</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                <button id="exportInventoryCSV" class="btn btn-secondary">
+                                    <i class="fas fa-file-csv"></i> CSV
+                                </button>
+                                <button id="exportInventoryJSON" class="btn btn-secondary">
+                                    <i class="fas fa-file-code"></i> JSON
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Exportar Proformas</h3>
+                            </div>
+                            <p>Descargar proformas en formato CSV o JSON</p>
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                <button id="exportProformasCSV" class="btn btn-secondary">
+                                    <i class="fas fa-file-csv"></i> CSV
+                                </button>
+                                <button id="exportProformasJSON" class="btn btn-secondary">
+                                    <i class="fas fa-file-code"></i> JSON
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Backup Completo</h3>
+                            </div>
+                            <p>Crear respaldo de todos los datos del sistema</p>
+                            <div style="margin-top: 1rem;">
+                                <button id="backupData" class="btn btn-primary">
+                                    <i class="fas fa-download"></i> Descargar Backup
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Configuración -->
+                <section id="settings" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Configuración del Sistema</h2>
+                    </div>
+                    
+                    <div class="kpi-grid">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Cambiar Contraseña</h3>
+                            </div>
+                            <form id="changePasswordForm">
+                                <div class="form-group">
+                                    <label for="currentPassword" class="form-label">Contraseña Actual</label>
+                                    <input type="password" id="currentPassword" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="newPassword" class="form-label">Nueva Contraseña</label>
+                                    <input type="password" id="newPassword" class="form-input" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
+                                    <input type="password" id="confirmPassword" class="form-input" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Cambiar Contraseña</button>
+                            </form>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Importar Datos</h3>
+                            </div>
+                            <p>Restaurar datos desde un archivo de backup</p>
+                            <div style="margin-top: 1rem;">
+                                <input type="file" id="importFile" accept=".json" class="form-input" style="margin-bottom: 1rem;">
+                                <button id="importData" class="btn btn-secondary">Importar</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modales -->
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button id="closeModal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer" id="modalFooter"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script_nuevo.js"></script>
+</body>
+</html>

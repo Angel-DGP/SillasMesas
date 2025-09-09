@@ -1,0 +1,301 @@
+{
+  "version": "1.0",
+  "fecha": "2024-12-19T10:00:00.000Z",
+  "data": {
+    "items": [
+      {
+        "id": "item_001",
+        "codigo": "SILL-001",
+        "nombre": "Silla plegable plástico blanca",
+        "categoria": "Sillas",
+        "descripcion": "Silla plegable de plástico blanco, resistente y fácil de transportar",
+        "cantidad_total": 100,
+        "comprometido": 20,
+        "unidad": "unidad",
+        "costo_unitario": 2.50,
+        "ubicacion": "Almacén A - Estante 1",
+        "created_at": "2024-12-01T08:00:00.000Z",
+        "updated_at": "2024-12-15T14:30:00.000Z"
+      },
+      {
+        "id": "item_002",
+        "codigo": "MESA-001",
+        "nombre": "Mesa redonda 1.20m",
+        "categoria": "Mesas",
+        "descripcion": "Mesa redonda de 1.20m de diámetro, plegable",
+        "cantidad_total": 50,
+        "comprometido": 10,
+        "unidad": "unidad",
+        "costo_unitario": 15.00,
+        "ubicacion": "Almacén A - Estante 2",
+        "created_at": "2024-12-01T08:15:00.000Z",
+        "updated_at": "2024-12-15T14:30:00.000Z"
+      },
+      {
+        "id": "item_003",
+        "codigo": "MANT-001",
+        "nombre": "Mantel blanco 1.20m",
+        "categoria": "Manteles",
+        "descripcion": "Mantel blanco de tela para mesa de 1.20m",
+        "cantidad_total": 200,
+        "comprometido": 40,
+        "unidad": "unidad",
+        "costo_unitario": 3.00,
+        "ubicacion": "Almacén B - Estante 1",
+        "created_at": "2024-12-01T08:30:00.000Z",
+        "updated_at": "2024-12-15T14:30:00.000Z"
+      },
+      {
+        "id": "item_004",
+        "codigo": "DECO-001",
+        "nombre": "Centro de mesa artificial",
+        "categoria": "Decoración",
+        "descripcion": "Centro de mesa con flores artificiales",
+        "cantidad_total": 30,
+        "comprometido": 5,
+        "unidad": "unidad",
+        "costo_unitario": 8.00,
+        "ubicacion": "Almacén B - Estante 2",
+        "created_at": "2024-12-01T08:45:00.000Z",
+        "updated_at": "2024-12-15T14:30:00.000Z"
+      },
+      {
+        "id": "item_005",
+        "codigo": "SILL-002",
+        "nombre": "Silla plegable metal dorada",
+        "categoria": "Sillas",
+        "descripcion": "Silla plegable de metal con acabado dorado",
+        "cantidad_total": 80,
+        "comprometido": 15,
+        "unidad": "unidad",
+        "costo_unitario": 4.50,
+        "ubicacion": "Almacén A - Estante 3",
+        "created_at": "2024-12-01T09:00:00.000Z",
+        "updated_at": "2024-12-15T14:30:00.000Z"
+      }
+    ],
+    "proformas": [
+      {
+        "id": "proforma_001",
+        "numero": "PF-20241219-001",
+        "cliente": {
+          "nombre": "María González",
+          "telefono": "555-0123",
+          "direccion": "Av. Principal 123, Ciudad"
+        },
+        "items": [
+          {
+            "item_id": "item_001",
+            "nombre": "Silla plegable plástico blanca",
+            "cantidad": 20,
+            "precio_unit": 3.00,
+            "subtotal": 60.00
+          },
+          {
+            "item_id": "item_002",
+            "nombre": "Mesa redonda 1.20m",
+            "cantidad": 10,
+            "precio_unit": 18.00,
+            "subtotal": 180.00
+          },
+          {
+            "item_id": "item_003",
+            "nombre": "Mantel blanco 1.20m",
+            "cantidad": 40,
+            "precio_unit": 4.00,
+            "subtotal": 160.00
+          }
+        ],
+        "subtotal": 400.00,
+        "costo_montaje": 50.00,
+        "costo_transporte": 30.00,
+        "impuestos": 0.00,
+        "total": 480.00,
+        "pagos": [
+          {
+            "fecha": "2024-12-19T10:00:00.000Z",
+            "monto": 240.00,
+            "metodo": "efectivo"
+          }
+        ],
+        "estado_retiro": false,
+        "estado_cancelado": false,
+        "estado_compuesto": "Sin retirar y no cancelado",
+        "fecha_creacion": "2024-12-19T10:00:00.000Z",
+        "fecha_retiro": null,
+        "fecha_cancelacion": null,
+        "notas": "Evento de boda - 15 de enero 2025"
+      },
+      {
+        "id": "proforma_002",
+        "numero": "PF-20241218-001",
+        "cliente": {
+          "nombre": "Carlos Rodríguez",
+          "telefono": "555-0456",
+          "direccion": "Calle Secundaria 456, Ciudad"
+        },
+        "items": [
+          {
+            "item_id": "item_005",
+            "nombre": "Silla plegable metal dorada",
+            "cantidad": 15,
+            "precio_unit": 6.00,
+            "subtotal": 90.00
+          },
+          {
+            "item_id": "item_004",
+            "nombre": "Centro de mesa artificial",
+            "cantidad": 5,
+            "precio_unit": 12.00,
+            "subtotal": 60.00
+          }
+        ],
+        "subtotal": 150.00,
+        "costo_montaje": 25.00,
+        "costo_transporte": 15.00,
+        "impuestos": 0.00,
+        "total": 190.00,
+        "pagos": [
+          {
+            "fecha": "2024-12-18T16:00:00.000Z",
+            "monto": 190.00,
+            "metodo": "transferencia"
+          }
+        ],
+        "estado_retiro": true,
+        "estado_cancelado": true,
+        "estado_compuesto": "Retirado y cancelado",
+        "fecha_creacion": "2024-12-18T16:00:00.000Z",
+        "fecha_retiro": "2024-12-18T18:00:00.000Z",
+        "fecha_cancelacion": "2024-12-18T16:30:00.000Z",
+        "notas": "Evento corporativo - Ya entregado"
+      }
+    ],
+    "movements": [
+      {
+        "id": "mov_001",
+        "item_id": "item_001",
+        "tipo": "entrada",
+        "cantidad": 100,
+        "fecha": "2024-12-01",
+        "motivo": "Stock inicial",
+        "nota": "Compra inicial de sillas"
+      },
+      {
+        "id": "mov_002",
+        "item_id": "item_002",
+        "tipo": "entrada",
+        "cantidad": 50,
+        "fecha": "2024-12-01",
+        "motivo": "Stock inicial",
+        "nota": "Compra inicial de mesas"
+      },
+      {
+        "id": "mov_003",
+        "item_id": "item_003",
+        "tipo": "entrada",
+        "cantidad": 200,
+        "fecha": "2024-12-01",
+        "motivo": "Stock inicial",
+        "nota": "Compra inicial de manteles"
+      },
+      {
+        "id": "mov_004",
+        "item_id": "item_004",
+        "tipo": "entrada",
+        "cantidad": 30,
+        "fecha": "2024-12-01",
+        "motivo": "Stock inicial",
+        "nota": "Compra inicial de decoración"
+      },
+      {
+        "id": "mov_005",
+        "item_id": "item_005",
+        "tipo": "entrada",
+        "cantidad": 80,
+        "fecha": "2024-12-01",
+        "motivo": "Stock inicial",
+        "nota": "Compra inicial de sillas doradas"
+      },
+      {
+        "id": "mov_006",
+        "item_id": "item_001",
+        "tipo": "salida",
+        "cantidad": 20,
+        "fecha": "2024-12-19",
+        "motivo": "Proforma #PF-20241219-001",
+        "nota": "Reserva para evento de boda"
+      },
+      {
+        "id": "mov_007",
+        "item_id": "item_002",
+        "tipo": "salida",
+        "cantidad": 10,
+        "fecha": "2024-12-19",
+        "motivo": "Proforma #PF-20241219-001",
+        "nota": "Reserva para evento de boda"
+      },
+      {
+        "id": "mov_008",
+        "item_id": "item_003",
+        "tipo": "salida",
+        "cantidad": 40,
+        "fecha": "2024-12-19",
+        "motivo": "Proforma #PF-20241219-001",
+        "nota": "Reserva para evento de boda"
+      },
+      {
+        "id": "mov_009",
+        "item_id": "item_005",
+        "tipo": "salida",
+        "cantidad": 15,
+        "fecha": "2024-12-18",
+        "motivo": "Proforma #PF-20241218-001",
+        "nota": "Evento corporativo - Ya entregado"
+      },
+      {
+        "id": "mov_010",
+        "item_id": "item_004",
+        "tipo": "salida",
+        "cantidad": 5,
+        "fecha": "2024-12-18",
+        "motivo": "Proforma #PF-20241218-001",
+        "nota": "Evento corporativo - Ya entregado"
+      }
+    ],
+    "audit": [
+      {
+        "id": "audit_001",
+        "action": "create_item",
+        "user": "admin",
+        "fecha": "2024-12-01T08:00:00.000Z",
+        "detalle": "Creó ítem: Silla plegable plástico blanca (SILL-001)"
+      },
+      {
+        "id": "audit_002",
+        "action": "create_item",
+        "user": "admin",
+        "fecha": "2024-12-01T08:15:00.000Z",
+        "detalle": "Creó ítem: Mesa redonda 1.20m (MESA-001)"
+      },
+      {
+        "id": "audit_003",
+        "action": "create_proforma",
+        "user": "admin",
+        "fecha": "2024-12-19T10:00:00.000Z",
+        "detalle": "Creó proforma: PF-20241219-001 - María González"
+      },
+      {
+        "id": "audit_004",
+        "action": "add_payment",
+        "user": "admin",
+        "fecha": "2024-12-19T10:05:00.000Z",
+        "detalle": "Agregó pago a proforma: PF-20241219-001 - $240"
+      }
+    ],
+    "settings": {
+      "password": "admin123",
+      "categories": ["Sillas", "Mesas", "Manteles", "Accesorios", "Decoración"]
+    }
+  }
+}
