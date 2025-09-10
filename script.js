@@ -21,6 +21,8 @@ class InventorySystem {
 
     init() {
         console.log('Inicializando sistema...');
+        // Limpiar datos antiguos para forzar recarga
+        localStorage.removeItem('inventory_data');
         this.loadData();
         this.setupEventListeners();
         this.updateDateTime();
@@ -61,6 +63,7 @@ class InventorySystem {
         document.getElementById('addItemBtn').addEventListener('click', () => this.showAddItemModal());
         document.getElementById('addProformaBtn').addEventListener('click', () => this.showAddProformaModal());
         document.getElementById('addMovementBtn').addEventListener('click', () => this.showAddMovementModal());
+        document.getElementById('addProformaMovementBtn').addEventListener('click', () => this.showProformaMovementModal());
         document.getElementById('viewRecepcionesBtn').addEventListener('click', () => this.showRecepcionesModal());
 
         // Filtros
@@ -163,14 +166,50 @@ class InventorySystem {
 
     updateDateTime() {
         const now = new Date();
-        const options = { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        const options = {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         };
-        document.getElementById('currentDateTime').textContent = now.toLocaleDateString('es-ES', options);
+        document.getElementById('currentDateTime').textContent = now.toLocaleString('es-ES', options);
+    }
+
+    // Función helper para formatear fechas con horas exactas
+    formatDateTimeExact(dateString) {
+        const date = new Date(dateString);
+        const options = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+        return date.toLocaleString('es-ES', options);
+    }
+
+    // Función helper para formatear solo fecha con hora
+    formatDateWithTime(dateString) {
+        const date = new Date(dateString);
+        const dateOptions = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        };
+        const timeOptions = {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+        return {
+            date: date.toLocaleDateString('es-ES', dateOptions),
+            time: date.toLocaleTimeString('es-ES', timeOptions)
+        };
     }
 
     // ==================== GESTIÓN DE DATOS ====================
@@ -183,6 +222,12 @@ class InventorySystem {
             // Cargar datos de ejemplo si no hay datos guardados
             this.loadSampleData();
         }
+        this.populateCategoryFilter();
+    }
+
+    reloadData() {
+        // Forzar recarga de datos
+        this.loadSampleData();
         this.populateCategoryFilter();
     }
 
@@ -201,6 +246,7 @@ class InventorySystem {
                 ubicacion: 'Almacén A - Estante 1',
                 arreglos: [
                     { tipo: 'Limpieza', precio: 0.50, descripcion: 'Limpieza profunda' },
+                    { tipo: 'Manta decorativa', precio: 2.00, descripcion: 'Manta elegante para silla' },
                     { tipo: 'Reparación', precio: 1.00, descripcion: 'Reparación de patas' }
                 ],
                 created_at: '2024-12-01T08:00:00.000Z',
@@ -219,6 +265,7 @@ class InventorySystem {
                 ubicacion: 'Almacén A - Estante 2',
                 arreglos: [
                     { tipo: 'Limpieza', precio: 2.00, descripcion: 'Limpieza y desinfección' },
+                    { tipo: 'Mantel premium', precio: 5.00, descripcion: 'Mantel de tela elegante' },
                     { tipo: 'Pulido', precio: 3.00, descripcion: 'Pulido de superficie' }
                 ],
                 created_at: '2024-12-01T08:15:00.000Z',
@@ -422,7 +469,10 @@ class InventorySystem {
                 <td>${proforma.cliente.nombre}</td>
                 <td>$${proforma.total.toLocaleString()}</td>
                 <td><span class="status-badge status-${proforma.estado_compuesto.replace(/\s+/g, '-').toLowerCase()}">${proforma.estado_compuesto}</span></td>
-                <td>${new Date(proforma.fecha_creacion).toLocaleDateString('es-ES')}</td>
+                <td>
+                    <div style="font-weight: 600;">${this.formatDateWithTime(proforma.fecha_creacion).date}</div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">${this.formatDateWithTime(proforma.fecha_creacion).time}</div>
+                </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         <button class="btn btn-icon" onclick="inventorySystem.viewProforma('${proforma.id}')" title="Ver">
@@ -660,7 +710,10 @@ class InventorySystem {
                 const item = this.data.items.find(i => i.id === movement.item_id);
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${new Date(movement.fecha).toLocaleDateString('es-ES')}</td>
+                    <td>
+                        <div style="font-weight: 600;">${this.formatDateWithTime(movement.fecha).date}</div>
+                        <div style="font-size: 0.75rem; color: var(--gray-500);">${this.formatDateWithTime(movement.fecha).time}</div>
+                    </td>
                     <td>${item ? item.nombre : 'Ítem eliminado'}</td>
                     <td><span class="status-badge ${movement.tipo === 'entrada' ? 'status-retirado-cancelado' : 'status-retirado-no-cancelado'}">${movement.tipo}</span></td>
                     <td>${movement.cantidad}</td>
@@ -749,9 +802,7 @@ class InventorySystem {
     showModal(title, content, footer = '') {
         document.getElementById('modalTitle').textContent = title;
         document.getElementById('modalBody').innerHTML = content;
-        document.getElementById('modalFooter').innerHTML = footer || `
-            <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cancelar</button>
-        `;
+        document.getElementById('modalFooter').innerHTML = footer;
         document.getElementById('modalOverlay').classList.remove('hidden');
     }
 
@@ -799,7 +850,10 @@ class InventorySystem {
                 <td>${proforma.cliente.nombre}</td>
                 <td>$${proforma.total.toLocaleString()}</td>
                 <td><span class="status-badge status-${proforma.estado_compuesto.replace(/\s+/g, '-').toLowerCase()}">${proforma.estado_compuesto}</span></td>
-                <td>${new Date(proforma.fecha_creacion).toLocaleDateString('es-ES')}</td>
+                <td>
+                    <div style="font-weight: 600;">${this.formatDateWithTime(proforma.fecha_creacion).date}</div>
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">${this.formatDateWithTime(proforma.fecha_creacion).time}</div>
+                </td>
                 <td>
                     <div style="display: flex; gap: 0.25rem;">
                         <button class="btn btn-icon" onclick="inventorySystem.viewProforma('${proforma.id}')" title="Ver">
@@ -807,6 +861,14 @@ class InventorySystem {
                         </button>
                         <button class="btn btn-icon" onclick="inventorySystem.printProforma('${proforma.id}')" title="Imprimir">
                             <i class="fas fa-print"></i>
+                        </button>
+                        ${proforma.estado_compuesto !== 'cumplido' ? `
+                            <button class="btn btn-icon" onclick="inventorySystem.editProforma('${proforma.id}')" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-icon" onclick="inventorySystem.deleteProforma('${proforma.id}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </td>
@@ -820,82 +882,178 @@ class InventorySystem {
     }
 
     showAddProformaModal() {
-        this.showModal('Nueva Proforma', this.getProformaFormHTML());
+        this.showModal('Nueva Proforma', this.getProformaFormHTML(), '');
         
         document.getElementById('proformaForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveProforma();
         });
+
+        // Event listeners para actualizar total automáticamente
+        document.getElementById('costoMontaje').addEventListener('input', () => this.calculateProformaTotal());
+        document.getElementById('costoTransporte').addEventListener('input', () => this.calculateProformaTotal());
+        const alquilerTipoEl = document.getElementById('alquilerTipo');
+        const alquilerDuracionEl = document.getElementById('alquilerDuracion');
+        const precioHoraGlobalEl = document.getElementById('precioHoraGlobal');
+        if (alquilerTipoEl) {
+            alquilerTipoEl.addEventListener('change', () => {
+                this.calculateProformaTotal();
+                this.updateTipoUnidad();
+            });
+        }
+        if (alquilerDuracionEl) alquilerDuracionEl.addEventListener('input', () => {
+            // Recalcular subtotales de filas porque usan la duración
+            document.querySelectorAll('#proformaItemsContainer .proforma-item-row input, #proformaItemsContainer .proforma-item-row select')
+                .forEach(el => this.calculateItemSubtotal(el));
+        });
+        if (precioHoraGlobalEl) precioHoraGlobalEl.addEventListener('input', () => this.calculateProformaTotal());
+        // Recalcular al escribir en filas existentes iniciales
+        document.querySelectorAll('#proformaItemsContainer .proforma-item-row input, #proformaItemsContainer .proforma-item-row select')
+            .forEach(el => el.addEventListener('input', () => this.calculateItemSubtotal(el)));
     }
 
     getProformaFormHTML() {
         return `
-            <form id="proformaForm">
+            <form id="proformaForm" class="form-compact">
                 <!-- Información del Cliente -->
-                <div class="section-title">
-                    <i class="fas fa-user"></i> Información del Cliente
-                </div>
-                
-                <div class="form-row">
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-user"></i> Información del Cliente
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clienteNombre" class="form-label">Nombre del Cliente *</label>
+                            <input type="text" id="clienteNombre" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="clienteTelefono" class="form-label">Teléfono</label>
+                            <input type="tel" id="clienteTelefono" class="form-input">
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
-                        <label for="clienteNombre" class="form-label">Nombre del Cliente *</label>
-                        <input type="text" id="clienteNombre" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="clienteTelefono" class="form-label">Teléfono</label>
-                        <input type="tel" id="clienteTelefono" class="form-input">
+                        <label for="clienteDireccion" class="form-label">Dirección</label>
+                        <input type="text" id="clienteDireccion" class="form-input">
                     </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="clienteDireccion" class="form-label">Dirección</label>
-                    <input type="text" id="clienteDireccion" class="form-input">
-                </div>
-                
-                <!-- Ítems de la Proforma -->
-                <div class="section-title">
-                    <i class="fas fa-list"></i> Ítems de la Proforma
-                </div>
-                
-                <div id="proformaItemsContainer">
-                    <div class="proforma-item-row">
-                        <select class="form-input" style="flex: 1;">
-                            <option value="">Seleccionar ítem...</option>
-                            ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}">${item.codigo} - ${item.nombre}</option>`).join('')}
-                        </select>
-                        <input type="number" placeholder="Cantidad" class="form-input" style="width: 100px;" min="1">
-                        <input type="number" placeholder="Precio unit." class="form-input" style="width: 120px;" step="0.01">
-                        <input type="number" placeholder="Subtotal" class="form-input" style="width: 120px;" step="0.01" readonly>
-                        <button type="button" class="btn btn-danger btn-icon" onclick="this.parentElement.remove()">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                <!-- Grid de Contenido -->
+                <div class="proforma-grid" style="display: grid; grid-template-columns: 3fr 2fr; gap: 1rem; align-items: start;">
+                    <!-- Columna Izquierda: Ítems -->
+                    <div>
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="fas fa-list"></i> Ítems de la Proforma
+                            </div>
+                        
+                        <div id="proformaItemsContainer">
+                            <div class="proforma-item-row" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; padding: 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); margin-bottom: 0.75rem;">
+                                <select class="form-input" style="flex: 1 1 250px; height: 2.25rem;" onchange="inventorySystem.updateItemPrice(this)">
+                                    <option value="">Seleccionar ítem...</option>
+                                    ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}">${item.codigo} - ${item.nombre}</option>`).join('')}
+                                </select>
+                                <input type="number" placeholder="Cantidad" class="form-input" style="flex: 0 1 80px; height: 2.25rem;" min="1" onchange="inventorySystem.calculateItemSubtotal(this)">
+                                <input type="number" placeholder="Precio unit." class="form-input" style="flex: 0 1 100px; height: 2.25rem;" step="0.01" onchange="inventorySystem.calculateItemSubtotal(this)">
+                                <label style="display: flex; align-items: center; gap: .3rem; font-size: .8125rem; color: var(--gray-700); flex: 0 0 auto; height: 2.25rem;">
+                                    <input type="checkbox" data-role="arreglo-toggle" disabled onchange="inventorySystem.toggleArreglo(this)"> Arreglo
+                                </label>
+                                <select class="form-input" data-role="arreglo-select" style="flex: 1 1 180px; height: 2.25rem; display: none;" onchange="inventorySystem.onArregloChange(this)" disabled>
+                                    <option value="">Arreglo decorativo...</option>
+                                </select>
+                                <input type="number" placeholder="Precio arreglo" class="form-input" data-role="arreglo-precio" style="flex: 0 1 100px; height: 2.25rem; display: none;" step="0.01" onchange="inventorySystem.calculateItemSubtotal(this)">
+                                <input type="number" placeholder="Subtotal" class="form-input" style="flex: 0 1 120px; height: 2.25rem;" step="0.01" readonly>
+                                <button type="button" class="btn btn-danger btn-icon" style="height: 2.25rem; padding: 0.5rem;" onclick="this.closest('.proforma-item-row').remove(); inventorySystem.calculateProformaTotal()">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                            <button type="button" class="btn btn-secondary" onclick="inventorySystem.addProformaItem()" style="margin-top: 0.75rem;">
+                                <i class="fas fa-plus"></i> Agregar Ítem
+                            </button>
+                        </div>
                     </div>
-                </div>
-                
-                <button type="button" class="btn btn-secondary" onclick="inventorySystem.addProformaItem()">
-                    <i class="fas fa-plus"></i> Agregar Ítem
-                </button>
-                
-                <!-- Costos Adicionales -->
-                <div class="section-title">
-                    <i class="fas fa-calculator"></i> Costos Adicionales
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="costoMontaje" class="form-label">Costo de Montaje</label>
-                        <input type="number" id="costoMontaje" class="form-input" min="0" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="costoTransporte" class="form-label">Costo de Transporte</label>
-                        <input type="number" id="costoTransporte" class="form-input" min="0" step="0.01">
-                    </div>
-                </div>
-                
-                <!-- Notas -->
-                <div class="form-group">
-                    <label for="proformaNotas" class="form-label">Notas</label>
-                    <textarea id="proformaNotas" class="form-input" rows="3" placeholder="Información adicional sobre la proforma..."></textarea>
+
+                    <!-- Columna Derecha: Alquiler, Costos, Notas y Total -->
+                    <aside>
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="fas fa-clock"></i> Duración del Alquiler
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="alquilerTipo" class="form-label">Tipo de Alquiler</label>
+                                    <select id="alquilerTipo" class="form-input">
+                                        <option value="horas">Horas</option>
+                                        <option value="dias">Días</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="alquilerDuracion" class="form-label">Duración</label>
+                                    <input type="number" id="alquilerDuracion" class="form-input" min="1" value="1" placeholder="Ej: 8">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="precioHoraGlobal" class="form-label">Precio por <span id="tipoUnidad">hora</span> (opcional)</label>
+                                <input type="number" id="precioHoraGlobal" class="form-input" min="0" step="0.01" placeholder="Ej: 2.50">
+                                <small class="form-help">Se aplicará a todos los ítems multiplicado por la duración</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class="fas fa-calculator"></i> Costos Adicionales
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="costoMontaje" class="form-label">Costo de Montaje</label>
+                                    <input type="number" id="costoMontaje" class="form-input" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="costoTransporte" class="form-label">Costo de Transporte</label>
+                                    <input type="number" id="costoTransporte" class="form-input" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label for="proformaNotas" class="form-label">Notas</label>
+                                <textarea id="proformaNotas" class="form-input" rows="3" placeholder="Información adicional sobre la proforma..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section" style="background: var(--primary-50); border-color: var(--primary-200); position: sticky; top: 0.5rem;">
+                            <div class="form-section-title" style="color: var(--primary-700);">
+                                <i class="fas fa-calculator"></i> Total de la Proforma
+                            </div>
+                            <div style="margin-bottom: 0.75rem;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.8125rem; color: var(--gray-600);">
+                                    <span>Subtotal ítems:</span>
+                                    <span id="subtotalItems">$0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.8125rem; color: var(--gray-600);">
+                                    <span>Montaje:</span>
+                                    <span id="costoMontajeDisplay">$0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.8125rem; color: var(--gray-600);">
+                                    <span>Transporte:</span>
+                                    <span id="costoTransporteDisplay">$0</span>
+                                </div>
+                                <div id="costoHoraGlobalDisplay" style="display: none; margin-bottom: 0.25rem;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--gray-600);">
+                                        <span>Precio por <span id="tipoUnidadTotal">hora</span>:</span>
+                                        <span id="costoHoraGlobalValue">$0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 1rem; font-weight: 600; color: var(--primary-700); border-top: 1px solid var(--primary-200); padding-top: 0.75rem;">
+                                <span>Total:</span>
+                                <span id="proformaTotal" style="font-size: 1.25rem; font-weight: 700; color: var(--primary-600);">$0</span>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
                 
                 <div class="form-actions">
@@ -909,19 +1067,27 @@ class InventorySystem {
         `;
     }
 
-    addProformaItem() {
+    addProformaItem(itemId = '', cantidad = '', precio = '') {
         const container = document.getElementById('proformaItemsContainer');
         const newRow = document.createElement('div');
         newRow.className = 'proforma-item-row';
+        newRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; padding: 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); margin-bottom: 0.75rem;';
         newRow.innerHTML = `
-            <select class="form-input" style="flex: 1;">
+            <select class="form-input" style="flex: 1 1 250px; height: 2.25rem;" onchange="inventorySystem.updateItemPrice(this)">
                 <option value="">Seleccionar ítem...</option>
-                ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}">${item.codigo} - ${item.nombre}</option>`).join('')}
+                ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}" ${item.id === itemId ? 'selected' : ''}>${item.codigo} - ${item.nombre}</option>`).join('')}
             </select>
-            <input type="number" placeholder="Cantidad" class="form-input" style="width: 100px;" min="1">
-            <input type="number" placeholder="Precio unit." class="form-input" style="width: 120px;" step="0.01">
-            <input type="number" placeholder="Subtotal" class="form-input" style="width: 120px;" step="0.01" readonly>
-            <button type="button" class="btn btn-danger btn-icon" onclick="this.parentElement.remove()">
+            <input type="number" placeholder="Cantidad" class="form-input" style="flex: 0 1 80px; height: 2.25rem;" min="1" value="${cantidad}" onchange="inventorySystem.calculateItemSubtotal(this)">
+            <input type="number" placeholder="Precio unit." class="form-input" style="flex: 0 1 100px; height: 2.25rem;" step="0.01" value="${precio}" onchange="inventorySystem.calculateItemSubtotal(this)">
+            <label style="display: flex; align-items: center; gap: .3rem; font-size: .8125rem; color: var(--gray-700); flex: 0 0 auto; height: 2.25rem;">
+                <input type="checkbox" data-role="arreglo-toggle" disabled onchange="inventorySystem.toggleArreglo(this)"> Arreglo
+            </label>
+            <select class="form-input" data-role="arreglo-select" style="flex: 1 1 180px; height: 2.25rem; display: none;" onchange="inventorySystem.onArregloChange(this)" disabled>
+                <option value="">Arreglo decorativo...</option>
+            </select>
+            <input type="number" placeholder="Precio arreglo" class="form-input" data-role="arreglo-precio" style="flex: 0 1 100px; height: 2.25rem; display: none;" step="0.01" onchange="inventorySystem.calculateItemSubtotal(this)">
+            <input type="number" placeholder="Subtotal" class="form-input" style="flex: 0 1 120px; height: 2.25rem;" step="0.01" readonly>
+            <button type="button" class="btn btn-danger btn-icon" style="height: 2.25rem; padding: 0.5rem;" onclick="this.closest('.proforma-item-row').remove(); inventorySystem.calculateProformaTotal()">
                 <i class="fas fa-trash"></i>
             </button>
         `;
@@ -940,6 +1106,10 @@ class InventorySystem {
             const select = row.querySelector('select');
             const cantidad = parseInt(row.querySelector('input[placeholder="Cantidad"]').value);
             const precio = parseFloat(row.querySelector('input[placeholder="Precio unit."]').value);
+            const duracion = parseInt(document.getElementById('alquilerDuracion')?.value || '1');
+            const arregloToggle = row.querySelector('input[data-role="arreglo-toggle"]').checked;
+            const arregloTipo = arregloToggle ? (row.querySelector('select[data-role="arreglo-select"]').value || null) : null;
+            const arregloPrecio = arregloToggle ? (parseFloat(row.querySelector('input[data-role="arreglo-precio"]').value) || 0) : 0;
             
             if (select.value && cantidad && precio) {
                 const item = this.data.items.find(i => i.id === select.value);
@@ -948,14 +1118,20 @@ class InventorySystem {
                     nombre: item.nombre,
                     cantidad: cantidad,
                     precio_unit: precio,
-                    subtotal: cantidad * precio
+                    arreglo: arregloTipo ? { tipo: arregloTipo, precio: arregloPrecio } : null,
+                    subtotal: (cantidad * precio * duracion) + (cantidad * arregloPrecio)
                 });
             }
         });
 
         const costoMontaje = parseFloat(document.getElementById('costoMontaje').value) || 0;
         const costoTransporte = parseFloat(document.getElementById('costoTransporte').value) || 0;
-        const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+        const precioHoraGlobal = parseFloat(document.getElementById('precioHoraGlobal').value) || 0;
+        const duracion = parseInt(document.getElementById('alquilerDuracion').value) || 1;
+        const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0) + (precioHoraGlobal > 0 ? precioHoraGlobal * duracion : 0);
+        // Persistir parámetros globales de alquiler
+        const alquilerTipo = document.getElementById('alquilerTipo').value;
+        const alquilerDuracion = parseInt(document.getElementById('alquilerDuracion').value) || 1;
         const total = subtotal + costoMontaje + costoTransporte;
 
         const proforma = {
@@ -976,7 +1152,12 @@ class InventorySystem {
             fecha_creacion: new Date().toISOString(),
             fecha_retiro: null,
             fecha_cancelacion: null,
-            notas: document.getElementById('proformaNotas').value
+            notas: document.getElementById('proformaNotas').value,
+            alquiler: {
+                tipo: alquilerTipo,
+                duracion: alquilerDuracion,
+                precio_hora_global: precioHoraGlobal || 0
+            }
         };
 
         this.data.proformas.push(proforma);
@@ -1007,7 +1188,8 @@ class InventorySystem {
                 <div class="proforma-header">
                     <h3>Proforma ${proforma.numero}</h3>
                     <p><strong>Cliente:</strong> ${proforma.cliente.nombre}</p>
-                    <p><strong>Fecha:</strong> ${new Date(proforma.fecha_creacion).toLocaleDateString('es-ES')}</p>
+                    <p><strong>Fecha:</strong> ${this.formatDateTimeExact(proforma.fecha_creacion)}</p>
+                    ${proforma.alquiler ? `<p><strong>Alquiler:</strong> ${proforma.alquiler.duracion} ${proforma.alquiler.tipo}</p>` : ''}
                     <p><strong>Estado:</strong> <span class="status-badge status-${proforma.estado_compuesto.replace(/\s+/g, '-').toLowerCase()}">${proforma.estado_compuesto}</span></p>
                 </div>
                 
@@ -1105,7 +1287,7 @@ class InventorySystem {
                     <h3>Cliente: ${proforma.cliente.nombre}</h3>
                     ${proforma.cliente.telefono ? `<p>Teléfono: ${proforma.cliente.telefono}</p>` : ''}
                     ${proforma.cliente.direccion ? `<p>Dirección: ${proforma.cliente.direccion}</p>` : ''}
-                    <p>Fecha: ${new Date(proforma.fecha_creacion).toLocaleDateString('es-ES')}</p>
+                    <p>Fecha: ${this.formatDateTimeExact(proforma.fecha_creacion)}</p>
                 </div>
                 
                 <table>
@@ -1134,6 +1316,11 @@ class InventorySystem {
                         <span>Subtotal Ítems:</span>
                         <span>$${proforma.subtotal.toFixed(2)}</span>
                     </div>
+                    ${proforma.alquiler ? `
+                    <div class="total-row">
+                        <span>Alquiler:</span>
+                        <span>${proforma.alquiler.duracion} ${proforma.alquiler.tipo}</span>
+                    </div>` : ''}
                     <div class="total-row">
                         <span>Costo de Montaje:</span>
                         <span>$${proforma.costo_montaje.toFixed(2)}</span>
@@ -1176,10 +1363,10 @@ class InventorySystem {
         const container = document.getElementById('arreglosContainer');
         container.innerHTML = '';
         item.arreglos.forEach(arreglo => {
-            this.addArregloRow(arreglo.tipo, arreglo.precio, arreglo.descripcion);
+            addArregloRow(arreglo.tipo, arreglo.precio, arreglo.descripcion);
         });
         if (item.arreglos.length === 0) {
-            this.addArregloRow();
+            addArregloRow();
         }
         
         document.getElementById('itemForm').addEventListener('submit', (e) => {
@@ -1265,7 +1452,7 @@ class InventorySystem {
                 `"${item.unidad}"`,
                 item.costo_unitario || 0,
                 `"${item.ubicacion}"`,
-                `"${new Date(item.created_at).toLocaleDateString('es-ES')}"`
+                `"${this.formatDateTimeExact(item.created_at)}"`
             ].join(','))
         ].join('\n');
 
@@ -1317,8 +1504,8 @@ class InventorySystem {
                 `"${proforma.cliente.direccion || ''}"`,
                 proforma.total,
                 `"${proforma.estado_compuesto}"`,
-                `"${new Date(proforma.fecha_creacion).toLocaleDateString('es-ES')}"`,
-                `"${proforma.fecha_cumplimiento ? new Date(proforma.fecha_cumplimiento).toLocaleDateString('es-ES') : ''}"`,
+                `"${this.formatDateTimeExact(proforma.fecha_creacion)}"`,
+                `"${proforma.fecha_cumplimiento ? this.formatDateTimeExact(proforma.fecha_cumplimiento) : ''}"`,
                 `"${proforma.notas || ''}"`
             ].join(','))
         ].join('\n');
@@ -1417,7 +1604,7 @@ class InventorySystem {
                     if (backup.data.items && backup.data.proformas && backup.data.movements && backup.data.audit && backup.data.settings) {
                         this.data = backup.data;
                         this.saveData();
-                        this.logAudit('import_data', `Importó backup del ${new Date(backup.export_date).toLocaleDateString('es-ES')}`);
+                        this.logAudit('import_data', `Importó backup del ${this.formatDateTimeExact(backup.export_date)}`);
                         
                         // Recargar todas las vistas
                         this.loadInventory();
@@ -1476,6 +1663,442 @@ class InventorySystem {
         
         this.showNotification('Contraseña cambiada exitosamente', 'success');
     }
+
+    editProforma(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+
+        this.showModal('Editar Proforma', this.getProformaFormHTML(proforma), '');
+        
+        // Llenar formulario con datos existentes
+        document.getElementById('clienteNombre').value = proforma.cliente.nombre;
+        document.getElementById('clienteTelefono').value = proforma.cliente.telefono || '';
+        document.getElementById('clienteDireccion').value = proforma.cliente.direccion || '';
+        document.getElementById('costoMontaje').value = proforma.costo_montaje || 0;
+        document.getElementById('costoTransporte').value = proforma.costo_transporte || 0;
+        document.getElementById('proformaNotas').value = proforma.notas || '';
+        if (proforma.alquiler) {
+            if (document.getElementById('alquilerTipo')) document.getElementById('alquilerTipo').value = proforma.alquiler.tipo || 'horas';
+            if (document.getElementById('alquilerDuracion')) document.getElementById('alquilerDuracion').value = proforma.alquiler.duracion || 1;
+            if (document.getElementById('precioHoraGlobal')) document.getElementById('precioHoraGlobal').value = proforma.alquiler.precio_hora_global || 0;
+        }
+
+        // Llenar ítems existentes
+        const container = document.getElementById('proformaItemsContainer');
+        container.innerHTML = '';
+        proforma.items.forEach(item => {
+            this.addProformaItem(item.item_id, item.cantidad, item.precio_unit);
+        });
+        if (proforma.items.length === 0) {
+            this.addProformaItem();
+        }
+        
+        document.getElementById('proformaForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.updateProforma(proformaId);
+        });
+    }
+
+    updateProforma(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+
+        const cliente = {
+            nombre: document.getElementById('clienteNombre').value,
+            telefono: document.getElementById('clienteTelefono').value,
+            direccion: document.getElementById('clienteDireccion').value
+        };
+
+        const items = [];
+        document.querySelectorAll('.proforma-item-row').forEach(row => {
+            const select = row.querySelector('select');
+            const cantidad = parseInt(row.querySelector('input[placeholder="Cantidad"]').value);
+            const precio = parseFloat(row.querySelector('input[placeholder="Precio unit."]').value);
+            const duracion = parseInt(document.getElementById('alquilerDuracion')?.value || '1');
+            const arregloToggle = row.querySelector('input[data-role="arreglo-toggle"]').checked;
+            const arregloTipo = arregloToggle ? (row.querySelector('select[data-role="arreglo-select"]').value || null) : null;
+            const arregloPrecio = arregloToggle ? (parseFloat(row.querySelector('input[data-role="arreglo-precio"]').value) || 0) : 0;
+            
+            if (select.value && cantidad && precio) {
+                const item = this.data.items.find(i => i.id === select.value);
+                items.push({
+                    item_id: select.value,
+                    nombre: item.nombre,
+                    cantidad: cantidad,
+                    precio_unit: precio,
+                    arreglo: arregloTipo ? { tipo: arregloTipo, precio: arregloPrecio } : null,
+                    subtotal: (cantidad * precio * duracion) + (cantidad * arregloPrecio)
+                });
+            }
+        });
+
+        const costoMontaje = parseFloat(document.getElementById('costoMontaje').value) || 0;
+        const costoTransporte = parseFloat(document.getElementById('costoTransporte').value) || 0;
+        const precioHoraGlobal = parseFloat(document.getElementById('precioHoraGlobal').value) || 0;
+        const alquilerTipo = document.getElementById('alquilerTipo').value;
+        const alquilerDuracion = parseInt(document.getElementById('alquilerDuracion').value) || 1;
+        const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+        const total = subtotal + costoMontaje + costoTransporte + (precioHoraGlobal > 0 ? precioHoraGlobal * alquilerDuracion : 0);
+
+        // Actualizar datos de la proforma
+        proforma.cliente = cliente;
+        proforma.items = items;
+        proforma.subtotal = subtotal;
+        proforma.costo_montaje = costoMontaje;
+        proforma.costo_transporte = costoTransporte;
+        proforma.total = total;
+        proforma.alquiler = { tipo: alquilerTipo, duracion: alquilerDuracion, precio_hora_global: precioHoraGlobal || 0 };
+        proforma.notas = document.getElementById('proformaNotas').value;
+        proforma.updated_at = new Date().toISOString();
+
+        this.saveData();
+        this.logAudit('update_proforma', `Editó proforma: ${proforma.numero} - ${cliente.nombre}`);
+
+        this.closeModal();
+        this.loadProformas();
+        this.updateKPIs();
+        this.showNotification('Proforma actualizada exitosamente', 'success');
+    }
+
+    deleteProforma(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+
+        if (confirm(`¿Estás seguro de que quieres eliminar la proforma "${proforma.numero}" de ${proforma.cliente.nombre}?`)) {
+            this.data.proformas = this.data.proformas.filter(p => p.id !== proformaId);
+            this.saveData();
+            this.logAudit('delete_proforma', `Eliminó proforma: ${proforma.numero} - ${proforma.cliente.nombre}`);
+            this.loadProformas();
+            this.updateKPIs();
+            this.showNotification('Proforma eliminada exitosamente', 'success');
+        }
+    }
+
+    showProformaMovementModal() {
+        const html = `
+            <form id="proformaMovementForm" class="form-compact">
+                <!-- Selección de Proforma -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-file-invoice"></i> Seleccionar Proforma
+                    </div>
+                    <div class="form-group">
+                        <label for="proformaMovementSelect" class="form-label">Proforma *</label>
+                        <select id="proformaMovementSelect" class="form-input" required onchange="inventorySystem.loadProformaItems()">
+                            <option value="">Seleccionar proforma...</option>
+                            ${this.data.proformas.map(p => `<option value="${p.id}">${p.numero} - ${p.cliente.nombre}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Ítems de la Proforma -->
+                <div id="proformaItemsDisplay" style="display: none;">
+                    <div class="form-section">
+                        <div class="form-section-title">
+                            <i class="fas fa-list"></i> Ítems de la Proforma
+                        </div>
+                        <div id="proformaMovementItems"></div>
+                    </div>
+                </div>
+                
+                <!-- Detalles del Movimiento -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-truck"></i> Detalles del Movimiento
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="movementTipo" class="form-label">Tipo de Movimiento *</label>
+                            <select id="movementTipo" class="form-input" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="salida">Salida (Entrega)</option>
+                                <option value="entrada">Entrada (Devolución)</option>
+                                <option value="mixto">Mixto (Salida y Entrada)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="movementFecha" class="form-label">Fecha del Movimiento *</label>
+                            <input type="date" id="movementFecha" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="movementNotas" class="form-label">Notas del Movimiento</label>
+                        <textarea id="movementNotas" class="form-input" rows="3" placeholder="Observaciones sobre el movimiento..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i>
+                        Registrar Movimiento
+                    </button>
+                </div>
+            </form>
+        `;
+
+        this.showModal('Movimiento con Proforma', html);
+        
+        // Establecer fecha actual
+        document.getElementById('movementFecha').value = new Date().toISOString().split('T')[0];
+        
+        // Event listener para el formulario
+        document.getElementById('proformaMovementForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProformaMovement();
+        });
+    }
+
+    loadProformaItems() {
+        const proformaId = document.getElementById('proformaMovementSelect').value;
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        const container = document.getElementById('proformaMovementItems');
+        const display = document.getElementById('proformaItemsDisplay');
+        
+        if (!proforma) {
+            display.style.display = 'none';
+            return;
+        }
+        
+        display.style.display = 'block';
+        container.innerHTML = proforma.items.map(item => `
+            <div class="proforma-movement-item" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem; align-items: end; padding: 0.75rem; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
+                <div style="flex: 1 1 200px; min-width: 200px;">
+                    <label class="form-label" style="font-size: 0.8125rem; margin-bottom: 0.25rem;">${item.nombre}</label>
+                    <p style="font-size: 0.75rem; color: var(--gray-600); margin: 0;">Solicitado: ${item.cantidad} unidades</p>
+                </div>
+                <div style="flex: 0 1 100px;">
+                    <label class="form-label" style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Cantidad Salida</label>
+                    <input type="number" class="form-input" style="height: 2.25rem; font-size: 0.8125rem;" min="0" max="${item.cantidad}" value="0" data-item-id="${item.item_id}" data-max="${item.cantidad}">
+                </div>
+                <div style="flex: 0 1 100px;">
+                    <label class="form-label" style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Cantidad Entrada</label>
+                    <input type="number" class="form-input" style="height: 2.25rem; font-size: 0.8125rem;" min="0" value="0" data-item-id="${item.item_id}">
+                </div>
+                <div style="flex: 0 1 120px;">
+                    <label class="form-label" style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Estado</label>
+                    <select class="form-input" style="height: 2.25rem; font-size: 0.8125rem;" data-item-id="${item.item_id}">
+                        <option value="completo">Completo</option>
+                        <option value="parcial">Parcial</option>
+                        <option value="devuelto">Devuelto</option>
+                        <option value="perdido">Perdido</option>
+                    </select>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    saveProformaMovement() {
+        const proformaId = document.getElementById('proformaMovementSelect').value;
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        const tipo = document.getElementById('movementTipo').value;
+        const fecha = document.getElementById('movementFecha').value;
+        const notas = document.getElementById('movementNotas').value;
+
+        if (!proforma) {
+            alert('Por favor, seleccione una proforma válida.');
+            return;
+        }
+
+        const movimientos = [];
+        document.querySelectorAll('.proforma-movement-item').forEach(row => {
+            const itemId = row.querySelector('input[data-item-id]').dataset.itemId;
+            const cantidadSalida = parseInt(row.querySelector('input[data-item-id]').value) || 0;
+            const cantidadEntrada = parseInt(row.querySelectorAll('input[data-item-id]')[1].value) || 0;
+            const estado = row.querySelector('select').value;
+
+            if (cantidadSalida > 0 || cantidadEntrada > 0) {
+                if (cantidadSalida > 0) {
+                    movimientos.push({
+                        item_id: itemId,
+                        tipo: 'salida',
+                        cantidad: cantidadSalida,
+                        motivo: `Entrega proforma ${proforma.numero}`,
+                        nota: `Estado: ${estado} - ${notas}`
+                    });
+                }
+                if (cantidadEntrada > 0) {
+                    movimientos.push({
+                        item_id: itemId,
+                        tipo: 'entrada',
+                        cantidad: cantidadEntrada,
+                        motivo: `Devolución proforma ${proforma.numero}`,
+                        nota: `Estado: ${estado} - ${notas}`
+                    });
+                }
+            }
+        });
+
+        if (movimientos.length === 0) {
+            alert('Por favor, ingrese al menos una cantidad de salida o entrada.');
+            return;
+        }
+
+        // Crear movimientos
+        movimientos.forEach(mov => {
+            this.createMovement(mov.item_id, mov.tipo, mov.cantidad, mov.motivo, mov.nota);
+        });
+
+        // Actualizar inventario
+        movimientos.forEach(mov => {
+            const item = this.data.items.find(i => i.id === mov.item_id);
+            if (item) {
+                if (mov.tipo === 'salida') {
+                    item.cantidad_total -= mov.cantidad;
+                } else {
+                    item.cantidad_total += mov.cantidad;
+                }
+                item.updated_at = new Date().toISOString();
+            }
+        });
+
+        this.saveData();
+        this.logAudit('proforma_movement', `Registró movimiento con proforma ${proforma.numero}: ${movimientos.length} movimientos`);
+
+        this.closeModal();
+        this.loadMovements();
+        this.loadInventory();
+        this.updateKPIs();
+        this.showNotification('Movimiento registrado exitosamente', 'success');
+    }
+
+    updateItemPrice(selectElement) {
+        const precio = selectElement.selectedOptions[0].dataset.precio;
+        const row = selectElement.closest('.proforma-item-row');
+        const precioInput = row.querySelector('input[placeholder="Precio unit."]');
+        const arregloToggle = row.querySelector('input[data-role="arreglo-toggle"]');
+        const arregloSelect = row.querySelector('select[data-role="arreglo-select"]');
+        const arregloPrecio = row.querySelector('input[data-role="arreglo-precio"]');
+        if (precio) {
+            precioInput.value = precio;
+            this.calculateItemSubtotal(precioInput);
+        }
+        // Cargar arreglos disponibles del ítem
+        const itemId = selectElement.value;
+        arregloSelect.innerHTML = `<option value=\"\">Arreglo decorativo...</option>`;
+        arregloPrecio.value = '';
+        arregloToggle.checked = false;
+        arregloSelect.style.display = 'none';
+        arregloPrecio.style.display = 'none';
+        if (!itemId) {
+            arregloSelect.disabled = true;
+            arregloToggle.disabled = true;
+            return;
+        }
+        const item = this.data.items.find(i => i.id === itemId);
+        if (item && item.arreglos && item.arreglos.length > 0) {
+            item.arreglos.forEach(arr => {
+                const opt = document.createElement('option');
+                opt.value = arr.tipo;
+                opt.textContent = `${arr.tipo} ($${arr.precio})`;
+                opt.dataset.precio = arr.precio;
+                arregloSelect.appendChild(opt);
+            });
+            arregloSelect.disabled = false;
+            arregloToggle.disabled = false;
+        } else {
+            arregloSelect.disabled = true;
+            arregloToggle.disabled = true;
+        }
+    }
+
+    calculateItemSubtotal(inputElement) {
+        const row = inputElement.closest('.proforma-item-row');
+        const cantidad = parseInt(row.querySelector('input[placeholder="Cantidad"]').value) || 0;
+        const precio = parseFloat(row.querySelector('input[placeholder="Precio unit."]').value) || 0;
+        const duracion = parseInt(document.getElementById('alquilerDuracion')?.value || '1');
+        const arregloPrecio = parseFloat(row.querySelector('input[data-role="arreglo-precio"]').value) || 0;
+        const subtotal = (cantidad * precio * duracion) + (cantidad * arregloPrecio);
+        
+        const subtotalInput = row.querySelector('input[placeholder="Subtotal"]');
+        subtotalInput.value = subtotal.toFixed(2);
+        
+        this.calculateProformaTotal();
+    }
+
+    onArregloChange(selectElement) {
+        const row = selectElement.closest('.proforma-item-row');
+        const selected = selectElement.selectedOptions[0];
+        const precio = parseFloat(selected?.dataset?.precio || '0');
+        const precioInput = row.querySelector('input[data-role="arreglo-precio"]');
+        precioInput.value = precio ? precio.toFixed(2) : '';
+        this.calculateItemSubtotal(precioInput);
+    }
+
+    toggleArreglo(checkboxEl) {
+        const row = checkboxEl.closest('.proforma-item-row');
+        const arregloSelect = row.querySelector('select[data-role="arreglo-select"]');
+        const arregloPrecio = row.querySelector('input[data-role="arreglo-precio"]');
+        
+        if (checkboxEl.checked) {
+            arregloSelect.style.display = 'block';
+            arregloPrecio.style.display = 'block';
+        } else {
+            arregloSelect.style.display = 'none';
+            arregloPrecio.style.display = 'none';
+            arregloSelect.value = '';
+            arregloPrecio.value = '';
+            this.calculateItemSubtotal(arregloPrecio);
+        }
+    }
+
+    updateTipoUnidad() {
+        const tipoSelect = document.getElementById('alquilerTipo');
+        const tipoUnidadSpan = document.getElementById('tipoUnidad');
+        if (tipoSelect && tipoUnidadSpan) {
+            tipoUnidadSpan.textContent = tipoSelect.value === 'dias' ? 'día' : 'hora';
+        }
+    }
+
+    calculateProformaTotal() {
+        let subtotal = 0;
+        document.querySelectorAll('.proforma-item-row').forEach(row => {
+            const subtotalInput = row.querySelector('input[placeholder="Subtotal"]');
+            if (subtotalInput.value) {
+                subtotal += parseFloat(subtotalInput.value);
+            }
+        });
+
+        // Calcular costos adicionales
+        const costoMontaje = parseFloat(document.getElementById('costoMontaje').value) || 0;
+        const costoTransporte = parseFloat(document.getElementById('costoTransporte').value) || 0;
+        const precioHoraGlobal = parseFloat(document.getElementById('precioHoraGlobal').value) || 0;
+        const duracion = parseInt(document.getElementById('alquilerDuracion').value) || 1;
+        
+        // Calcular total incluyendo precio por hora global
+        const costoHoraGlobal = precioHoraGlobal > 0 ? precioHoraGlobal * duracion : 0;
+        const total = subtotal + costoMontaje + costoTransporte + costoHoraGlobal;
+
+        // Actualizar desglose en la interfaz
+        const subtotalElement = document.getElementById('subtotalItems');
+        const montajeElement = document.getElementById('costoMontajeDisplay');
+        const transporteElement = document.getElementById('costoTransporteDisplay');
+        const horaGlobalElement = document.getElementById('costoHoraGlobalDisplay');
+        const horaGlobalValueElement = document.getElementById('costoHoraGlobalValue');
+        const tipoUnidadTotalElement = document.getElementById('tipoUnidadTotal');
+        const totalElement = document.getElementById('proformaTotal');
+
+        if (subtotalElement) subtotalElement.textContent = `$${subtotal.toLocaleString()}`;
+        if (montajeElement) montajeElement.textContent = `$${costoMontaje.toLocaleString()}`;
+        if (transporteElement) transporteElement.textContent = `$${costoTransporte.toLocaleString()}`;
+        
+        if (horaGlobalElement && horaGlobalValueElement) {
+            if (costoHoraGlobal > 0) {
+                horaGlobalElement.style.display = 'block';
+                horaGlobalValueElement.textContent = `$${costoHoraGlobal.toLocaleString()}`;
+                if (tipoUnidadTotalElement) {
+                    const tipo = document.getElementById('alquilerTipo')?.value || 'horas';
+                    tipoUnidadTotalElement.textContent = tipo === 'dias' ? 'día' : 'hora';
+                }
+            } else {
+                horaGlobalElement.style.display = 'none';
+            }
+        }
+        
+        if (totalElement) {
+            totalElement.textContent = `$${total.toLocaleString()}`;
+        }
+    }
 }
 
 // Función global para agregar filas de arreglos
@@ -1495,210 +2118,737 @@ function addArregloRow(tipo = '', precio = '', descripcion = '') {
     container.appendChild(newRow);
 }
 
-    showRecepcionModal(proformaId) {
-        const proforma = this.data.proformas.find(p => p.id === proformaId);
-        if (!proforma) return;
+InventorySystem.prototype.showRecepcionModal = function(proformaId) {
+    const proforma = this.data.proformas.find(p => p.id === proformaId);
+    if (!proforma) return;
 
-        const html = `
-            <form id="recepcionForm">
-                <div class="section-title">
-                    <i class="fas fa-truck"></i> Registrar Recepción de Adimentos
+    const html = `
+        <form id="recepcionForm" class="form-compact">
+            <!-- Información de la Proforma -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-file-invoice"></i> Información de la Proforma
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Proforma: ${proforma.numero}</label>
-                    <p><strong>Cliente:</strong> ${proforma.cliente.nombre}</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Número de Proforma</label>
+                        <div class="form-input" style="background: var(--primary-50); border-color: var(--primary-200); font-weight: 600; color: var(--primary-700);">
+                            ${proforma.numero}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cliente</label>
+                        <div class="form-input" style="background: var(--gray-50);">
+                            ${proforma.cliente.nombre}
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="section-title">
-                    <i class="fas fa-list"></i> Cantidades Recibidas
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Fecha de Creación</label>
+                        <div class="form-input" style="background: var(--gray-50);">
+                            ${this.formatDateTimeExact(proforma.fecha_creacion)}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total de la Proforma</label>
+                        <div class="form-input" style="background: var(--success-50); border-color: var(--success-200); font-weight: 600; color: var(--success-700);">
+                            $${proforma.total.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ítems a Recibir -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-boxes"></i> Ítems a Recibir
+                    <span style="font-size: 0.875rem; font-weight: 400; color: var(--gray-600); margin-left: 0.5rem;">
+                        (${proforma.items.length} ítem${proforma.items.length !== 1 ? 's' : ''})
+                    </span>
                 </div>
                 
                 <div id="recepcionItemsContainer">
-                    ${proforma.items.map(item => `
-                        <div class="recepcion-item-row" style="display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: end; padding: 1rem; background: var(--gray-50); border-radius: var(--radius); border: 1px solid var(--gray-200);">
-                            <div style="flex: 1;">
-                                <label class="form-label">${item.nombre}</label>
-                                <p style="font-size: 0.875rem; color: var(--gray-600);">Solicitado: ${item.cantidad} unidades</p>
+                    ${proforma.items.map((item, index) => `
+                        <div class="recepcion-item-card" data-item-id="${item.item_id}">
+                            <div class="recepcion-item-header">
+                                <div class="item-info">
+                                    <h4 class="item-name">${item.nombre}</h4>
+                                    <div class="item-details">
+                                        <span class="item-code">Código: ${item.codigo || 'N/A'}</span>
+                                        <span class="item-category">${item.categoria}</span>
+                                    </div>
+                                </div>
+                                <div class="item-status-indicator">
+                                    <i class="fas fa-circle" style="color: var(--warning-400);"></i>
+                                    <span>Pendiente</span>
+                                </div>
                             </div>
-                            <div style="width: 150px;">
-                                <label class="form-label">Cantidad Recibida *</label>
-                                <input type="number" class="form-input" min="0" max="${item.cantidad}" value="${item.cantidad}" data-item-id="${item.item_id}" required>
-                            </div>
-                            <div style="width: 120px;">
-                                <label class="form-label">Estado</label>
-                                <select class="form-input" data-item-id="${item.item_id}">
-                                    <option value="completo">Completo</option>
-                                    <option value="parcial">Parcial</option>
-                                    <option value="faltante">Faltante</option>
-                                </select>
+                            
+                            <div class="recepcion-item-content">
+                                <div class="quantity-info">
+                                    <div class="quantity-box">
+                                        <label class="quantity-label">Solicitado</label>
+                                        <div class="quantity-value">${item.cantidad} ${item.unidad}</div>
+                                    </div>
+                                    <div class="quantity-arrow">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </div>
+                                    <div class="quantity-box">
+                                        <label class="quantity-label">Recibido</label>
+                                        <input type="number" 
+                                               class="form-input quantity-input" 
+                                               min="0" 
+                                               max="${item.cantidad}" 
+                                               value="${item.cantidad}" 
+                                               data-item-id="${item.item_id}" 
+                                               required
+                                               onchange="inventorySystem.updateRecepcionItemStatus(this)">
+                                    </div>
+                                </div>
+                                
+                                <div class="status-section">
+                                    <div class="form-group">
+                                        <label class="form-label">Estado de Recepción</label>
+                                        <select class="form-input status-select" data-item-id="${item.item_id}" onchange="inventorySystem.updateRecepcionItemStatus(this)">
+                                            <option value="completo">✅ Completo</option>
+                                            <option value="parcial">⚠️ Parcial</option>
+                                            <option value="faltante">❌ Faltante</option>
+                                            <option value="devuelto">🔄 Devuelto</option>
+                                            <option value="perdido">💔 Perdido</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label">Observaciones</label>
+                                        <input type="text" 
+                                               class="form-input" 
+                                               placeholder="Notas específicas del ítem..."
+                                               data-item-id="${item.item_id}">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `).join('')}
                 </div>
-                
+            </div>
+
+            <!-- Resumen de Recepción -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-clipboard-check"></i> Resumen de Recepción
+                </div>
+                <div class="recepcion-summary">
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalItems">${proforma.items.length}</div>
+                            <div class="stat-label">Total Ítems</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="completosItems">0</div>
+                            <div class="stat-label">Completos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="parcialesItems">0</div>
+                            <div class="stat-label">Parciales</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="faltantesItems">0</div>
+                            <div class="stat-label">Faltantes</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información Adicional -->
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-notes-medical"></i> Información Adicional
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="recepcionFecha" class="form-label">Fecha de Recepción *</label>
+                        <input type="date" id="recepcionFecha" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="recepcionHora" class="form-label">Hora de Recepción</label>
+                        <input type="time" id="recepcionHora" class="form-input" value="${new Date().toTimeString().slice(0, 5)}">
+                    </div>
+                </div>
                 <div class="form-group">
-                    <label for="recepcionNotas" class="form-label">Notas de Recepción</label>
-                    <textarea id="recepcionNotas" class="form-input" rows="3" placeholder="Observaciones sobre la recepción..."></textarea>
+                    <label for="recepcionNotas" class="form-label">Notas Generales de Recepción</label>
+                    <textarea id="recepcionNotas" class="form-input" rows="3" placeholder="Observaciones generales sobre la recepción, condiciones de los ítems, etc..."></textarea>
                 </div>
-                
-                <div class="form-group">
-                    <label for="recepcionFecha" class="form-label">Fecha de Recepción *</label>
-                    <input type="date" id="recepcionFecha" class="form-input" required>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-check"></i>
-                        Confirmar Recepción
-                    </button>
-                </div>
-            </form>
-        `;
-
-        this.showModal(`Registrar Recepción - ${proforma.numero}`, html);
-        
-        // Establecer fecha actual
-        document.getElementById('recepcionFecha').value = new Date().toISOString().split('T')[0];
-        
-        // Event listener para el formulario
-        document.getElementById('recepcionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.confirmarRecepcion(proformaId);
-        });
-    }
-
-    confirmarRecepcion(proformaId) {
-        const proforma = this.data.proformas.find(p => p.id === proformaId);
-        if (!proforma) return;
-
-        const recepcionNotas = document.getElementById('recepcionNotas').value;
-        const recepcionFecha = document.getElementById('recepcionFecha').value;
-
-        // Recopilar cantidades recibidas
-        const recepciones = [];
-        document.querySelectorAll('.recepcion-item-row').forEach(row => {
-            const cantidadRecibida = parseInt(row.querySelector('input[type="number"]').value);
-            const estado = row.querySelector('select').value;
-            const itemId = row.querySelector('input[type="number"]').dataset.itemId;
+            </div>
             
-            recepciones.push({
-                item_id: itemId,
-                cantidad_solicitada: proforma.items.find(i => i.item_id === itemId).cantidad,
-                cantidad_recibida: cantidadRecibida,
-                estado: estado
-            });
-        });
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-check"></i> Confirmar Recepción
+                </button>
+            </div>
+        </form>
+    `;
 
-        // Crear registro de recepción
-        const recepcion = {
-            id: this.generateId(),
-            proforma_id: proformaId,
-            fecha: recepcionFecha,
-            notas: recepcionNotas,
-            items: recepciones,
-            created_at: new Date().toISOString()
-        };
+    this.showModal(`Registrar Recepción - ${proforma.numero}`, html);
+    
+    // Establecer fecha y hora actual
+    document.getElementById('recepcionFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('recepcionHora').value = new Date().toTimeString().slice(0, 5);
+    
+    // Event listener para el formulario
+    document.getElementById('recepcionForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.confirmarRecepcion(proformaId);
+    });
+    
+    // Actualizar resumen inicial
+    this.updateRecepcionSummary();
+};
 
-        // Guardar recepción
-        if (!this.data.recepciones) {
-            this.data.recepciones = [];
-        }
-        this.data.recepciones.push(recepcion);
+// Funciones auxiliares para el formulario de recepción mejorado
+InventorySystem.prototype.updateRecepcionItemStatus = function(element) {
+    const itemCard = element.closest('.recepcion-item-card');
+    const itemId = element.dataset.itemId;
+    const cantidadInput = itemCard.querySelector('.quantity-input');
+    const statusSelect = itemCard.querySelector('.status-select');
+    const statusIndicator = itemCard.querySelector('.item-status-indicator');
+    
+    const cantidadRecibida = parseInt(cantidadInput.value) || 0;
+    const estado = statusSelect.value;
+    
+    // Actualizar indicador visual
+    this.updateItemStatusIndicator(statusIndicator, estado, cantidadRecibida);
+    
+    // Actualizar resumen
+    this.updateRecepcionSummary();
+};
 
-        // Actualizar inventario
-        recepciones.forEach(rec => {
-            const item = this.data.items.find(i => i.id === rec.item_id);
-            if (item) {
-                item.cantidad_total += rec.cantidad_recibida;
-                item.updated_at = new Date().toISOString();
-            }
-        });
-
-        // Cambiar estado de la proforma a cumplido
-        proforma.estado_compuesto = 'cumplido';
-        proforma.fecha_cumplimiento = new Date().toISOString();
-
-        // Crear movimiento de entrada
-        recepciones.forEach(rec => {
-            this.createMovement(rec.item_id, 'entrada', rec.cantidad_recibida, `Recepción proforma ${proforma.numero}`, `Estado: ${rec.estado}`);
-        });
-
-        this.saveData();
-        this.logAudit('confirm_recepcion', `Confirmó recepción de proforma ${proforma.numero}`);
-
-        this.closeModal();
-        this.loadProformas();
-        this.loadMovements();
-        this.updateKPIs();
-        this.showNotification('Recepción registrada exitosamente', 'success');
+InventorySystem.prototype.updateItemStatusIndicator = function(indicator, estado, cantidad) {
+    const icon = indicator.querySelector('i');
+    const text = indicator.querySelector('span');
+    
+    // Remover clases de color existentes
+    icon.className = 'fas fa-circle';
+    
+    switch(estado) {
+        case 'completo':
+            icon.style.color = 'var(--success-500)';
+            text.textContent = 'Completo';
+            break;
+        case 'parcial':
+            icon.style.color = 'var(--warning-500)';
+            text.textContent = 'Parcial';
+            break;
+        case 'faltante':
+            icon.style.color = 'var(--danger-500)';
+            text.textContent = 'Faltante';
+            break;
+        case 'devuelto':
+            icon.style.color = 'var(--info-500)';
+            text.textContent = 'Devuelto';
+            break;
+        case 'perdido':
+            icon.style.color = 'var(--danger-600)';
+            text.textContent = 'Perdido';
+            break;
+        default:
+            icon.style.color = 'var(--warning-400)';
+            text.textContent = 'Pendiente';
     }
+};
 
-    showRecepcionesModal() {
-        const recepciones = this.data.recepciones || [];
+InventorySystem.prototype.updateRecepcionSummary = function() {
+    const itemCards = document.querySelectorAll('.recepcion-item-card');
+    let completos = 0, parciales = 0, faltantes = 0;
+    
+    itemCards.forEach(card => {
+        const statusSelect = card.querySelector('.status-select');
+        const estado = statusSelect.value;
         
-        const html = `
-            <div class="recepciones-view">
-                <div class="section-title">
+        switch(estado) {
+            case 'completo':
+                completos++;
+                break;
+            case 'parcial':
+                parciales++;
+                break;
+            case 'faltante':
+                faltantes++;
+                break;
+        }
+    });
+    
+    // Actualizar contadores
+    const totalElement = document.getElementById('totalItems');
+    const completosElement = document.getElementById('completosItems');
+    const parcialesElement = document.getElementById('parcialesItems');
+    const faltantesElement = document.getElementById('faltantesItems');
+    
+    if (completosElement) completosElement.textContent = completos;
+    if (parcialesElement) parcialesElement.textContent = parciales;
+    if (faltantesElement) faltantesElement.textContent = faltantes;
+};
+
+InventorySystem.prototype.confirmarRecepcion = function(proformaId) {
+    const proforma = this.data.proformas.find(p => p.id === proformaId);
+    if (!proforma) return;
+
+    const recepcionNotas = document.getElementById('recepcionNotas').value;
+    const recepcionFecha = document.getElementById('recepcionFecha').value;
+    const recepcionHora = document.getElementById('recepcionHora').value;
+
+    // Combinar fecha y hora
+    const fechaHoraCompleta = new Date(`${recepcionFecha}T${recepcionHora}:00`).toISOString();
+
+    const recepciones = [];
+    document.querySelectorAll('.recepcion-item-card').forEach(card => {
+        const cantidadRecibida = parseInt(card.querySelector('.quantity-input').value) || 0;
+        const estado = card.querySelector('.status-select').value;
+        const observaciones = card.querySelector('input[placeholder*="Notas específicas"]').value;
+        const itemId = card.dataset.itemId;
+        
+        recepciones.push({
+            item_id: itemId,
+            cantidad_solicitada: proforma.items.find(i => i.item_id === itemId).cantidad,
+            cantidad_recibida: cantidadRecibida,
+            estado: estado,
+            observaciones: observaciones || null
+        });
+    });
+
+    const recepcion = {
+        id: this.generateId(),
+        proforma_id: proformaId,
+        fecha: recepcionFecha,
+        hora: recepcionHora,
+        fecha_hora_completa: fechaHoraCompleta,
+        notas: recepcionNotas,
+        items: recepciones,
+        created_at: new Date().toISOString()
+    };
+
+    if (!this.data.recepciones) {
+        this.data.recepciones = [];
+    }
+    this.data.recepciones.push(recepcion);
+
+    // Actualizar inventario solo con ítems recibidos
+    recepciones.forEach(rec => {
+        const item = this.data.items.find(i => i.id === rec.item_id);
+        if (item && rec.cantidad_recibida > 0) {
+            item.cantidad_total += rec.cantidad_recibida;
+            item.updated_at = new Date().toISOString();
+        }
+    });
+
+    // Actualizar estado de la proforma
+    proforma.estado_compuesto = 'cumplido';
+    proforma.fecha_cumplimiento = new Date().toISOString();
+
+    // Crear movimientos de inventario
+    recepciones.forEach(rec => {
+        if (rec.cantidad_recibida > 0) {
+            this.createMovement(
+                rec.item_id, 
+                'entrada', 
+                rec.cantidad_recibida, 
+                `Recepción proforma ${proforma.numero}`, 
+                `Estado: ${rec.estado}${rec.observaciones ? ` - ${rec.observaciones}` : ''}`
+            );
+        }
+    });
+
+    this.saveData();
+    this.logAudit('confirm_recepcion', `Confirmó recepción de proforma ${proforma.numero} - ${recepciones.length} ítems`);
+
+    this.closeModal();
+    this.loadProformas();
+    this.loadMovements();
+    this.updateKPIs();
+    this.showNotification('Recepción registrada exitosamente', 'success');
+};
+
+InventorySystem.prototype.showRecepcionesModal = function() {
+    const recepciones = this.data.recepciones || [];
+    
+    const html = `
+        <div class="recepciones-view">
+            <div class="form-section">
+                <div class="form-section-title">
                     <i class="fas fa-history"></i> Historial de Recepciones
                 </div>
                 
-                ${recepciones.length === 0 ? `
-                    <div style="text-align: center; padding: 2rem; color: var(--gray-500);">
-                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                        <p>No hay recepciones registradas</p>
+                <!-- Filtros y búsqueda -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="recepcionSearch" class="form-label">Buscar</label>
+                        <input type="text" id="recepcionSearch" class="form-input" placeholder="Buscar por proforma, cliente o notas...">
                     </div>
-                ` : `
+                    <div class="form-group">
+                        <label for="recepcionDateFilter" class="form-label">Filtrar por fecha</label>
+                        <input type="date" id="recepcionDateFilter" class="form-input">
+                    </div>
+                </div>
+                
+                <!-- Estadísticas rápidas -->
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <div style="background: var(--success-50); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--success-200); flex: 1;">
+                        <div style="font-size: 0.875rem; color: var(--success-700); font-weight: 600;">Total Recepciones</div>
+                        <div style="font-size: 1.5rem; color: var(--success-800); font-weight: 700;">${recepciones.length}</div>
+                    </div>
+                    <div style="background: var(--info-50); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--info-200); flex: 1;">
+                        <div style="font-size: 0.875rem; color: var(--info-700); font-weight: 600;">Este Mes</div>
+                        <div style="font-size: 1.5rem; color: var(--info-800); font-weight: 700;">${this.getRecepcionesEsteMes().length}</div>
+                    </div>
+                </div>
+            </div>
+            
+            ${recepciones.length === 0 ? `
+                <div class="form-section" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                    <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p>No hay recepciones registradas</p>
+                </div>
+            ` : `
+                <div class="form-section">
                     <div class="table-container">
-                        <table style="width: 100%; border-collapse: collapse;">
+                        <table class="data-table">
                             <thead>
-                                <tr style="background: var(--gray-100);">
-                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--gray-200);">Fecha</th>
-                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--gray-200);">Proforma</th>
-                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--gray-200);">Cliente</th>
-                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--gray-200);">Items</th>
-                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--gray-200);">Notas</th>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Proforma</th>
+                                    <th>Cliente</th>
+                                    <th>Ítems Recibidos</th>
+                                    <th>Estado</th>
+                                    <th>Notas</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${recepciones.map(recepcion => {
-                                    const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
-                                    return `
-                                        <tr>
-                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                                                ${new Date(recepcion.fecha).toLocaleDateString('es-ES')}
-                                            </td>
-                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                                                ${proforma ? proforma.numero : 'Proforma eliminada'}
-                                            </td>
-                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                                                ${proforma ? proforma.cliente.nombre : 'N/A'}
-                                            </td>
-                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                                                ${recepcion.items.map(item => {
-                                                    const itemData = this.data.items.find(i => i.id === item.item_id);
-                                                    return `${itemData ? itemData.nombre : 'Ítem eliminado'}: ${item.cantidad_recibida}/${item.cantidad_solicitada} (${item.estado})`;
-                                                }).join('<br>')}
-                                            </td>
-                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                                                ${recepcion.notas || 'Sin notas'}
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
+                            <tbody id="recepcionesTableBody">
+                                ${this.renderRecepcionesTable(recepciones)}
                             </tbody>
                         </table>
                     </div>
-                `}
-            </div>
-        `;
+                </div>
+            `}
+        </div>
+    `;
 
-        this.showModal('Historial de Recepciones', html, `
-            <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cerrar</button>
-        `);
-    }
-}
+    this.showModal('Historial de Recepciones', html, `
+        <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cerrar</button>
+        <button type="button" class="btn btn-primary" onclick="inventorySystem.exportRecepciones()">
+            <i class="fas fa-download"></i> Exportar
+        </button>
+    `);
+    
+    // Event listeners para filtros
+    document.getElementById('recepcionSearch').addEventListener('input', () => this.filterRecepciones());
+    document.getElementById('recepcionDateFilter').addEventListener('change', () => this.filterRecepciones());
+};
+
+// Funciones auxiliares para recepciones
+InventorySystem.prototype.getRecepcionesEsteMes = function() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return (this.data.recepciones || []).filter(recepcion => 
+        new Date(recepcion.fecha) >= startOfMonth
+    );
+};
+
+InventorySystem.prototype.renderRecepcionesTable = function(recepciones) {
+    return recepciones.map(recepcion => {
+        const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+        const fechaHora = new Date(recepcion.created_at || recepcion.fecha);
+        const estadoGeneral = this.getEstadoGeneralRecepcion(recepcion);
+        
+        return `
+            <tr>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                        <div style="font-weight: 600;">${this.formatDateWithTime(fechaHora.toISOString()).date}</div>
+                        <div style="font-size: 0.75rem; color: var(--gray-500);">${this.formatDateWithTime(fechaHora.toISOString()).time}</div>
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    ${proforma ? proforma.numero : 'Proforma eliminada'}
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    ${proforma ? proforma.cliente.nombre : 'N/A'}
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    ${recepcion.items.map(item => {
+                        const itemData = this.data.items.find(i => i.id === item.item_id);
+                        return `<div style="margin-bottom: 0.25rem;">
+                            <span style="font-weight: 500;">${itemData ? itemData.nombre : 'Ítem eliminado'}</span><br>
+                            <span style="font-size: 0.75rem; color: var(--gray-600);">
+                                ${item.cantidad_recibida}/${item.cantidad_solicitada} unidades
+                            </span>
+                        </div>`;
+                    }).join('')}
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    <span class="status-badge status-${estadoGeneral.toLowerCase()}">${estadoGeneral}</span>
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    ${recepcion.notas || 'Sin notas'}
+                </td>
+                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="inventorySystem.viewRecepcionDetail('${recepcion.id}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+InventorySystem.prototype.getEstadoGeneralRecepcion = function(recepcion) {
+    const estados = recepcion.items.map(item => item.estado);
+    if (estados.every(estado => estado === 'completo')) return 'Completo';
+    if (estados.some(estado => estado === 'perdido')) return 'Con Pérdidas';
+    if (estados.some(estado => estado === 'devuelto')) return 'Parcial';
+    return 'Parcial';
+};
+
+InventorySystem.prototype.filterRecepciones = function() {
+    const searchTerm = document.getElementById('recepcionSearch').value.toLowerCase();
+    const dateFilter = document.getElementById('recepcionDateFilter').value;
+    const recepciones = this.data.recepciones || [];
+    
+    let filtered = recepciones.filter(recepcion => {
+        const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+        const matchesSearch = !searchTerm || 
+            (proforma && proforma.numero.toLowerCase().includes(searchTerm)) ||
+            (proforma && proforma.cliente.nombre.toLowerCase().includes(searchTerm)) ||
+            (recepcion.notas && recepcion.notas.toLowerCase().includes(searchTerm));
+        
+        const matchesDate = !dateFilter || recepcion.fecha === dateFilter;
+        
+        return matchesSearch && matchesDate;
+    });
+    
+    document.getElementById('recepcionesTableBody').innerHTML = this.renderRecepcionesTable(filtered);
+};
+
+InventorySystem.prototype.viewRecepcionDetail = function(recepcionId) {
+    const recepcion = this.data.recepciones.find(r => r.id === recepcionId);
+    if (!recepcion) return;
+    
+    const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+    const fechaHora = new Date(recepcion.created_at || recepcion.fecha);
+    
+    const html = `
+        <div class="recepcion-detail">
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-eye"></i> Detalle de Recepción
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Número de Proforma</label>
+                        <div class="form-input" style="background: var(--gray-50);">${proforma ? proforma.numero : 'Proforma eliminada'}</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cliente</label>
+                        <div class="form-input" style="background: var(--gray-50);">${proforma ? proforma.cliente.nombre : 'N/A'}</div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Fecha de Recepción</label>
+                        <div class="form-input" style="background: var(--gray-50);">${this.formatDateWithTime(fechaHora.toISOString()).date}</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hora de Recepción</label>
+                        <div class="form-input" style="background: var(--gray-50);">${this.formatDateWithTime(fechaHora.toISOString()).time}</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Notas</label>
+                    <div class="form-input" style="background: var(--gray-50); min-height: 3rem;">${recepcion.notas || 'Sin notas'}</div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fas fa-list"></i> Ítems Recibidos
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ítem</th>
+                                <th>Solicitado</th>
+                                <th>Recibido</th>
+                                <th>Estado</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recepcion.items.map(item => {
+                                const itemData = this.data.items.find(i => i.id === item.item_id);
+                                return `
+                                    <tr>
+                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                            <div style="font-weight: 500;">${itemData ? itemData.nombre : 'Ítem eliminado'}</div>
+                                            <div style="font-size: 0.75rem; color: var(--gray-500);">${itemData ? itemData.codigo : 'N/A'}</div>
+                                        </td>
+                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                                            ${item.cantidad_solicitada}
+                                        </td>
+                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100); text-align: center;">
+                                            <span style="font-weight: 600; color: var(--primary-600);">${item.cantidad_recibida}</span>
+                                        </td>
+                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                            <span class="status-badge status-${item.estado}">${item.estado}</span>
+                                        </td>
+                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                            ${item.observaciones || '-'}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.showModal(`Detalle de Recepción - ${proforma ? proforma.numero : 'N/A'}`, html, `
+        <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cerrar</button>
+        <button type="button" class="btn btn-primary" onclick="inventorySystem.printRecepcion('${recepcionId}')">
+            <i class="fas fa-print"></i> Imprimir
+        </button>
+    `);
+};
+
+InventorySystem.prototype.exportRecepciones = function() {
+    const recepciones = this.data.recepciones || [];
+    const csvContent = this.generateRecepcionesCSV(recepciones);
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `recepciones_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    this.showNotification('Recepciones exportadas exitosamente', 'success');
+};
+
+InventorySystem.prototype.generateRecepcionesCSV = function(recepciones) {
+    const headers = ['Fecha', 'Hora', 'Proforma', 'Cliente', 'Ítem', 'Solicitado', 'Recibido', 'Estado', 'Notas'];
+    const rows = [headers.join(',')];
+    
+    recepciones.forEach(recepcion => {
+        const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+        const fechaHora = new Date(recepcion.created_at || recepcion.fecha);
+        
+        recepcion.items.forEach(item => {
+            const itemData = this.data.items.find(i => i.id === item.item_id);
+            const row = [
+                this.formatDateWithTime(fechaHora.toISOString()).date,
+                this.formatDateWithTime(fechaHora.toISOString()).time,
+                proforma ? proforma.numero : 'N/A',
+                proforma ? proforma.cliente.nombre : 'N/A',
+                itemData ? itemData.nombre : 'Ítem eliminado',
+                item.cantidad_solicitada,
+                item.cantidad_recibida,
+                item.estado,
+                recepcion.notas || ''
+            ];
+            rows.push(row.map(field => `"${field}"`).join(','));
+        });
+    });
+    
+    return rows.join('\n');
+};
+
+InventorySystem.prototype.printRecepcion = function(recepcionId) {
+    const recepcion = this.data.recepciones.find(r => r.id === recepcionId);
+    if (!recepcion) return;
+    
+    const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+    const fechaHora = new Date(recepcion.created_at || recepcion.fecha);
+    
+    const printContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+                <h1 style="color: #333; margin: 0;">RECEPCIÓN DE ADIMENTOS</h1>
+                <p style="margin: 5px 0; color: #666;">Sistema de Inventario - Adimentos para Eventos</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Información General</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Proforma:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${proforma ? proforma.numero : 'N/A'}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Cliente:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${proforma ? proforma.cliente.nombre : 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Fecha:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${this.formatDateWithTime(fechaHora.toISOString()).date}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: bold;">Hora:</td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">${this.formatDateWithTime(fechaHora.toISOString()).time}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Ítems Recibidos</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="padding: 10px; border: 1px solid #333; text-align: left;">Ítem</th>
+                            <th style="padding: 10px; border: 1px solid #333; text-align: center;">Solicitado</th>
+                            <th style="padding: 10px; border: 1px solid #333; text-align: center;">Recibido</th>
+                            <th style="padding: 10px; border: 1px solid #333; text-align: center;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recepcion.items.map(item => {
+                            const itemData = this.data.items.find(i => i.id === item.item_id);
+                            return `
+                                <tr>
+                                    <td style="padding: 8px; border: 1px solid #ddd;">${itemData ? itemData.nombre : 'Ítem eliminado'}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.cantidad_solicitada}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${item.cantidad_recibida}</td>
+                                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.estado}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            ${recepcion.notas ? `
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Notas</h3>
+                    <p style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">${recepcion.notas}</p>
+                </div>
+            ` : ''}
+            
+            <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+                <p>Documento generado el ${new Date().toLocaleString('es-ES')}</p>
+            </div>
+        </div>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+};
 
 // Inicializar sistema
 const inventorySystem = new InventorySystem();
