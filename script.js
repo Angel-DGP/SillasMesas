@@ -60,11 +60,16 @@ class InventorySystem {
         });
 
         // Botones principales
-        document.getElementById('addItemBtn').addEventListener('click', () => this.showAddItemModal());
-        document.getElementById('addProformaBtn').addEventListener('click', () => this.showAddProformaModal());
-        document.getElementById('addMovementBtn').addEventListener('click', () => this.showAddMovementModal());
-        document.getElementById('addProformaMovementBtn').addEventListener('click', () => this.showProformaMovementModal());
-        document.getElementById('viewRecepcionesBtn').addEventListener('click', () => this.showRecepcionesModal());
+        const addItemBtn = document.getElementById('addItemBtn');
+        if (addItemBtn) addItemBtn.addEventListener('click', () => this.showAddItemModal());
+        const addProformaBtn = document.getElementById('addProformaBtn');
+        if (addProformaBtn) addProformaBtn.addEventListener('click', () => this.showAddProformaModal());
+        const addMovementBtn = document.getElementById('addMovementBtn');
+        if (addMovementBtn) addMovementBtn.addEventListener('click', () => this.showAddMovementModal());
+        const addProformaMovementBtn = document.getElementById('addProformaMovementBtn');
+        if (addProformaMovementBtn) addProformaMovementBtn.addEventListener('click', () => this.showProformaMovementModal());
+        const viewRecepcionesBtn = document.getElementById('viewRecepcionesBtn');
+        if (viewRecepcionesBtn) viewRecepcionesBtn.addEventListener('click', () => this.showRecepcionesModal());
 
         // Filtros
         document.getElementById('searchItems').addEventListener('input', () => this.filterInventory());
@@ -73,6 +78,12 @@ class InventorySystem {
         document.getElementById('statusFilter').addEventListener('change', () => this.filterProformas());
         document.getElementById('dateFromFilter').addEventListener('change', () => this.filterProformas());
         document.getElementById('dateToFilter').addEventListener('change', () => this.filterProformas());
+        const movementTypeFilter = document.getElementById('movementTypeFilter');
+        if (movementTypeFilter) movementTypeFilter.addEventListener('change', () => this.filterMovements());
+        const movementDateFrom = document.getElementById('movementDateFrom');
+        if (movementDateFrom) movementDateFrom.addEventListener('change', () => this.filterMovements());
+        const movementDateTo = document.getElementById('movementDateTo');
+        if (movementDateTo) movementDateTo.addEventListener('change', () => this.filterMovements());
 
         // Exportación
         document.getElementById('exportInventoryCSV').addEventListener('click', () => this.exportInventory('csv'));
@@ -166,11 +177,11 @@ class InventorySystem {
 
     updateDateTime() {
         const now = new Date();
-        const options = {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
+        const options = { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric', 
+            hour: '2-digit', 
             minute: '2-digit',
             second: '2-digit'
         };
@@ -438,6 +449,7 @@ class InventorySystem {
     loadDashboard() {
         this.updateKPIs();
         this.loadRecentProformas();
+        this.renderDashboardCharts && this.renderDashboardCharts();
     }
 
     updateKPIs() {
@@ -445,13 +457,87 @@ class InventorySystem {
         const committedItems = this.data.items.reduce((sum, item) => sum + (item.comprometido || 0), 0);
         const pendingProformas = this.data.proformas.filter(p => !p.estado_retiro && !p.estado_cancelado).length;
         const totalIncome = this.data.proformas.reduce((sum, p) => {
-            return sum + (p.pagos ? p.pagos.reduce((pSum, pago) => pSum + pago.monto, 0) : 0);
+            return sum + (p.total || 0);
         }, 0);
 
         document.getElementById('totalItems').textContent = totalItems.toLocaleString();
         document.getElementById('committedItems').textContent = committedItems.toLocaleString();
         document.getElementById('pendingProformas').textContent = pendingProformas;
         document.getElementById('totalIncome').textContent = `$${totalIncome.toLocaleString()}`;
+    }
+
+    // Estados unificados segun retiro, recepción (cumplido) y pago
+    getEstadoCompuestoUnificado(proforma) {
+        if (proforma.fecha_cumplimiento) {
+            const pagadoCumplido = (proforma.pagos || []).reduce((s, p) => s + (p.monto || 0), 0) >= (proforma.total || 0);
+            return pagadoCumplido ? 'Cumplido' : 'Cumplido, falta de pago';
+        }
+        const pagado = (proforma.pagos || []).reduce((s, p) => s + (p.monto || 0), 0) >= (proforma.total || 0);
+        const retirado = !!proforma.estado_retiro;
+        if (!retirado && !pagado) return 'Pendiente a retiro y pago';
+        if (!retirado && pagado) return 'Pendiente a retirar, pagado';
+        if (retirado && !pagado) return 'Retirado, pendiente a pagar';
+        return 'Retirado y pagado';
+    }
+
+    updateProformaEstadoCompuesto(proforma) {
+        proforma.estado_compuesto = this.getEstadoCompuestoUnificado(proforma);
+        this.saveData();
+        this.loadProformas();
+    }
+
+    renderDashboardCharts() {
+        if (!window.Chart) return;
+
+        // Top ítems solicitados (por comprometido)
+        const itemsSorted = [...this.data.items]
+            .sort((a, b) => (b.comprometido || 0) - (a.comprometido || 0))
+            .slice(0, 5);
+        const topLabels = itemsSorted.map(i => i.codigo || i.nombre);
+        const topData = itemsSorted.map(i => i.comprometido || 0);
+
+        const ctxTop = document.getElementById('chartTopItems');
+        if (ctxTop) {
+            if (this._chartTop) this._chartTop.destroy();
+            this._chartTop = new Chart(ctxTop, {
+                type: 'bar',
+                data: { labels: topLabels, datasets: [{ label: 'Comprometidos', data: topData, backgroundColor: '#6366f1' }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        // Ocupado vs Disponible
+        const totalComprometido = this.data.items.reduce((s, i) => s + (i.comprometido || 0), 0);
+        const totalDisponible = this.data.items.reduce((s, i) => s + Math.max((i.cantidad_total || 0) - (i.comprometido || 0), 0), 0);
+        const ctxPie = document.getElementById('chartOcupado');
+        if (ctxPie) {
+            if (this._chartPie) this._chartPie.destroy();
+            this._chartPie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: { labels: ['Ocupado', 'Disponible'], datasets: [{ data: [totalComprometido, totalDisponible], backgroundColor: ['#f59e0b', '#10b981'] }] },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+            });
+        }
+
+        // Tendencia de movimientos por mes (últimos 6 meses)
+        const byMonth = {};
+        const movements = this.data.movements || [];
+        movements.forEach(m => {
+            const d = new Date(m.fecha);
+            if (isNaN(d)) return;
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            byMonth[key] = (byMonth[key] || 0) + Math.abs(Number(m.cantidad) || 0);
+        });
+        const months = Object.keys(byMonth).sort().slice(-6);
+        const ctxLine = document.getElementById('chartMovimientos');
+        if (ctxLine) {
+            if (this._chartLine) this._chartLine.destroy();
+            this._chartLine = new Chart(ctxLine, {
+                type: 'line',
+                data: { labels: months, datasets: [{ label: 'Movimientos', data: months.map(m => byMonth[m] || 0), borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,.15)', tension: .25, fill: true }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
     }
 
     loadRecentProformas() {
@@ -486,6 +572,154 @@ class InventorySystem {
             `;
             tbody.appendChild(row);
         });
+    }
+
+    registrarSalidaProforma(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+        if (proforma.estado_retiro) {
+            this.showNotification('La proforma ya fue marcada como retirada.', 'warning');
+            return;
+        }
+
+        const nowIso = new Date().toISOString();
+        const movimientosSalida = [];
+
+        proforma.items.forEach(pi => {
+            const movimiento = {
+                id: this.generateId(),
+                item_id: pi.item_id,
+                tipo: 'salida',
+                cantidad: pi.cantidad,
+                fecha: nowIso,
+                motivo: `Proforma #${proforma.numero}`,
+                nota: 'Entrega al cliente'
+            };
+            movimientosSalida.push(movimiento);
+
+            const item = this.data.items.find(i => i.id === pi.item_id);
+            if (item) {
+                // Si había stock comprometido, lo liberamos y consumimos salida lógica
+                const comprometidoActual = Number(item.comprometido || 0);
+                item.comprometido = Math.max(comprometidoActual - Number(pi.cantidad || 0), 0);
+                // Nota: no alteramos cantidad_total aquí; se asume inventario circulante
+                item.updated_at = nowIso;
+            }
+        });
+
+        this.data.movements.push(...movimientosSalida);
+
+        proforma.estado_retiro = true;
+        if (!proforma.estado_cancelado) {
+            proforma.estado_compuesto = 'Retirado y no cancelado';
+        } else {
+            proforma.estado_compuesto = 'Retirado y cancelado';
+        }
+        proforma.fecha_retiro = nowIso;
+
+        this.saveData();
+        this.loadProformas();
+        this.loadInventory && this.loadInventory();
+        this.loadMovements && this.loadMovements();
+        this.updateKPIs();
+        this.renderDashboardCharts && this.renderDashboardCharts();
+
+        this.showNotification('Salida registrada correctamente.', 'success');
+        // Refrescar la vista de proforma para mostrar nuevos botones/estado
+        this.viewProforma(proformaId);
+    }
+
+    showSalidaModal(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+        const html = `
+            <form id="salidaForm" class="form-compact">
+                <div class="form-section">
+                    <div class="form-section-title"><i class="fas fa-truck"></i> Confirmar Salida</div>
+                    <div id="salidaItems">
+                        ${proforma.items.map(it => `
+                            <div class="proforma-movement-item" style="display:flex; gap:.5rem; align-items:center; padding:.75rem; border:1px solid var(--gray-200); border-radius: var(--radius); margin-bottom:.5rem;">
+                                <div style="flex:2; font-weight:600;">${it.nombre}</div>
+                                <div style="flex:1;">Solicitado: <strong>${it.cantidad}</strong></div>
+                                <div style="flex:1;">
+                                    <label class="form-label" style="margin:0; font-size:.75rem;">Entregado</label>
+                                    <input type="number" class="form-input" min="0" max="${it.cantidad}" value="${it.cantidad}" data-item-id="${it.item_id}" />
+                                </div>
+                                <div style="flex:2;">
+                                    <input type="text" class="form-input" placeholder="Observaciones (opcional)" data-item-id="${it.item_id}-obs" />
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-warning"><i class="fas fa-truck"></i> Confirmar Salida</button>
+                </div>
+            </form>
+        `;
+        this.showModal(`Salida de ${proforma.numero}`, html, '');
+        document.getElementById('salidaForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.confirmarSalida(proformaId);
+        });
+    }
+
+    confirmarSalida(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+        const nowIso = new Date().toISOString();
+        const movimientosSalida = [];
+        const inputs = Array.from(document.querySelectorAll('#salidaItems input[type="number"]'));
+
+        inputs.forEach(input => {
+            const itemId = input.getAttribute('data-item-id');
+            const entregado = Math.max(0, Number(input.value || 0));
+            if (entregado <= 0) return;
+            const obs = (document.querySelector(`#salidaItems input[data-item-id="${itemId}-obs"]`)?.value || '').trim();
+            const proformaItem = proforma.items.find(i => i.item_id === itemId);
+            movimientosSalida.push({
+                id: this.generateId(),
+                item_id: itemId,
+                tipo: 'salida',
+                cantidad: entregado,
+                fecha: nowIso,
+                motivo: `Proforma #${proforma.numero}`,
+                nota: obs || 'Entrega al cliente'
+            });
+
+            const item = this.data.items.find(i => i.id === itemId);
+            if (item) {
+                const comprometidoActual = Number(item.comprometido || 0);
+                item.comprometido = Math.max(comprometidoActual - entregado, 0);
+                item.updated_at = nowIso;
+            }
+            if (proformaItem) {
+                proformaItem.entregado = (proformaItem.entregado || 0) + entregado;
+            }
+        });
+
+        if (movimientosSalida.length === 0) {
+            this.showNotification('Debes ingresar al menos una cantidad entregada.', 'warning');
+            return;
+        }
+
+        this.data.movements.push(...movimientosSalida);
+
+        // Estado compuesto unificado (ver más abajo cálculo final)
+        proforma.estado_retiro = true;
+        proforma.fecha_retiro = nowIso;
+
+        this.saveData();
+        this.closeModal();
+        this.loadProformas();
+        this.loadInventory && this.loadInventory();
+        this.loadMovements && this.loadMovements();
+        this.updateProformaEstadoCompuesto(proforma);
+        this.updateKPIs();
+        this.renderDashboardCharts && this.renderDashboardCharts();
+        this.viewProforma(proformaId);
+        this.showNotification('Salida confirmada.', 'success');
     }
 
     // ==================== GESTIÓN DE INVENTARIO ====================
@@ -704,9 +938,26 @@ class InventorySystem {
         const tbody = document.querySelector('#movementsTable tbody');
         tbody.innerHTML = '';
 
-        this.data.movements
-            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
-            .forEach(movement => {
+        // Leer filtros
+        const typeFilter = (document.getElementById('movementTypeFilter')?.value || '').toLowerCase();
+        const dateFrom = document.getElementById('movementDateFrom')?.value || '';
+        const dateTo = document.getElementById('movementDateTo')?.value || '';
+
+        // Filtrar y ordenar
+        const filtered = this.data.movements
+            .filter(m => {
+                const matchesType = !typeFilter || (m.tipo || '').toLowerCase() === typeFilter;
+                // m.fecha puede venir en ISO o yyyy-mm-dd; normalizar
+                const d = new Date(m.fecha);
+                if (Number.isNaN(d.getTime())) return false;
+                const isoDate = d.toISOString().slice(0,10);
+                const matchesFrom = !dateFrom || isoDate >= dateFrom;
+                const matchesTo = !dateTo || isoDate <= dateTo;
+                return matchesType && matchesFrom && matchesTo;
+            })
+            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        filtered.forEach(movement => {
                 const item = this.data.items.find(i => i.id === movement.item_id);
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -722,6 +973,10 @@ class InventorySystem {
                 `;
                 tbody.appendChild(row);
             });
+    }
+
+    filterMovements() {
+        this.loadMovements();
     }
 
     showAddMovementModal() {
@@ -918,23 +1173,28 @@ class InventorySystem {
                 <!-- Información del Cliente -->
                 <div class="form-section">
                     <div class="form-section-title">
-                        <i class="fas fa-user"></i> Información del Cliente
+                    <i class="fas fa-user"></i> Información del Cliente
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="clienteNombre" class="form-label">Nombre del Cliente *</label>
+                        <input type="text" id="clienteNombre" class="form-input" required>
                     </div>
-                    
+                    <div class="form-group">
+                            <label for="clienteTelefono" class="form-label">Teléfono *</label>
+                            <input type="tel" id="clienteTelefono" class="form-input" required>
+                    </div>
+                </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="clienteNombre" class="form-label">Nombre del Cliente *</label>
-                            <input type="text" id="clienteNombre" class="form-input" required>
+                            <label for="clienteCorreo" class="form-label">Correo electrónico *</label>
+                            <input type="email" id="clienteCorreo" class="form-input" required>
                         </div>
-                        <div class="form-group">
-                            <label for="clienteTelefono" class="form-label">Teléfono</label>
-                            <input type="tel" id="clienteTelefono" class="form-input">
+                <div class="form-group">
+                    <label for="clienteDireccion" class="form-label">Dirección</label>
+                    <input type="text" id="clienteDireccion" class="form-input">
                         </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="clienteDireccion" class="form-label">Dirección</label>
-                        <input type="text" id="clienteDireccion" class="form-input">
                     </div>
                 </div>
                 
@@ -944,15 +1204,15 @@ class InventorySystem {
                     <div>
                         <div class="form-section">
                             <div class="form-section-title">
-                                <i class="fas fa-list"></i> Ítems de la Proforma
-                            </div>
-                        
-                        <div id="proformaItemsContainer">
+                    <i class="fas fa-list"></i> Ítems de la Proforma
+                </div>
+                
+                <div id="proformaItemsContainer">
                             <div class="proforma-item-row" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; padding: 0.75rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); margin-bottom: 0.75rem;">
                                 <select class="form-input" style="flex: 1 1 250px; height: 2.25rem;" onchange="inventorySystem.updateItemPrice(this)">
-                                    <option value="">Seleccionar ítem...</option>
-                                    ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}">${item.codigo} - ${item.nombre}</option>`).join('')}
-                                </select>
+                            <option value="">Seleccionar ítem...</option>
+                            ${this.data.items.map(item => `<option value="${item.id}" data-precio="${item.costo_unitario}">${item.codigo} - ${item.nombre}</option>`).join('')}
+                        </select>
                                 <input type="number" placeholder="Cantidad" class="form-input" style="flex: 0 1 80px; height: 2.25rem;" min="1" onchange="inventorySystem.calculateItemSubtotal(this)">
                                 <input type="number" placeholder="Precio unit." class="form-input" style="flex: 0 1 100px; height: 2.25rem;" step="0.01" onchange="inventorySystem.calculateItemSubtotal(this)">
                                 <label style="display: flex; align-items: center; gap: .3rem; font-size: .8125rem; color: var(--gray-700); flex: 0 0 auto; height: 2.25rem;">
@@ -964,14 +1224,14 @@ class InventorySystem {
                                 <input type="number" placeholder="Precio arreglo" class="form-input" data-role="arreglo-precio" style="flex: 0 1 100px; height: 2.25rem; display: none;" step="0.01" onchange="inventorySystem.calculateItemSubtotal(this)">
                                 <input type="number" placeholder="Subtotal" class="form-input" style="flex: 0 1 120px; height: 2.25rem;" step="0.01" readonly>
                                 <button type="button" class="btn btn-danger btn-icon" style="height: 2.25rem; padding: 0.5rem;" onclick="this.closest('.proforma-item-row').remove(); inventorySystem.calculateProformaTotal()">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
                             <button type="button" class="btn btn-secondary" onclick="inventorySystem.addProformaItem()" style="margin-top: 0.75rem;">
-                                <i class="fas fa-plus"></i> Agregar Ítem
-                            </button>
+                    <i class="fas fa-plus"></i> Agregar Ítem
+                </button>
                         </div>
                     </div>
 
@@ -999,35 +1259,35 @@ class InventorySystem {
                                 <input type="number" id="precioHoraGlobal" class="form-input" min="0" step="0.01" placeholder="Ej: 2.50">
                                 <small class="form-help">Se aplicará a todos los ítems multiplicado por la duración</small>
                             </div>
-                        </div>
-                        
+                </div>
+                
                         <div class="form-section">
                             <div class="form-section-title">
                                 <i class="fas fa-calculator"></i> Costos Adicionales
                             </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="costoMontaje" class="form-label">Costo de Montaje</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="costoMontaje" class="form-label">Costo de Montaje</label>
                                     <input type="number" id="costoMontaje" class="form-input" min="0" step="0.01" placeholder="0.00">
-                                </div>
-                                <div class="form-group">
-                                    <label for="costoTransporte" class="form-label">Costo de Transporte</label>
+                    </div>
+                    <div class="form-group">
+                        <label for="costoTransporte" class="form-label">Costo de Transporte</label>
                                     <input type="number" id="costoTransporte" class="form-input" min="0" step="0.01" placeholder="0.00">
                                 </div>
-                            </div>
-                        </div>
-                        
+                    </div>
+                </div>
+                
                         <div class="form-section">
-                            <div class="form-group">
-                                <label for="proformaNotas" class="form-label">Notas</label>
-                                <textarea id="proformaNotas" class="form-input" rows="3" placeholder="Información adicional sobre la proforma..."></textarea>
+                <div class="form-group">
+                    <label for="proformaNotas" class="form-label">Notas</label>
+                    <textarea id="proformaNotas" class="form-input" rows="3" placeholder="Información adicional sobre la proforma..."></textarea>
                             </div>
-                        </div>
-                        
+                </div>
+                
                         <div class="form-section" style="background: var(--primary-50); border-color: var(--primary-200); position: sticky; top: 0.5rem;">
                             <div class="form-section-title" style="color: var(--primary-700);">
                                 <i class="fas fa-calculator"></i> Total de la Proforma
-                            </div>
+                    </div>
                             <div style="margin-bottom: 0.75rem;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.8125rem; color: var(--gray-600);">
                                     <span>Subtotal ítems:</span>
@@ -1098,6 +1358,7 @@ class InventorySystem {
         const cliente = {
             nombre: document.getElementById('clienteNombre').value,
             telefono: document.getElementById('clienteTelefono').value,
+            correo: document.getElementById('clienteCorreo').value,
             direccion: document.getElementById('clienteDireccion').value
         };
 
@@ -1182,12 +1443,17 @@ class InventorySystem {
     viewProforma(proformaId) {
         const proforma = this.data.proformas.find(p => p.id === proformaId);
         if (!proforma) return;
+        const totalProforma = Number(proforma.total || 0);
+        const pagado = (proforma.pagos || []).reduce((s, p) => s + (p.monto || 0), 0);
+        const saldo = Math.max(totalProforma - pagado, 0);
 
         const html = `
             <div class="proforma-view">
                 <div class="proforma-header">
                     <h3>Proforma ${proforma.numero}</h3>
                     <p><strong>Cliente:</strong> ${proforma.cliente.nombre}</p>
+                    ${proforma.cliente.telefono ? `<p><strong>Teléfono:</strong> ${proforma.cliente.telefono}</p>` : ''}
+                    ${proforma.cliente.correo ? `<p><strong>Correo:</strong> ${proforma.cliente.correo}</p>` : ''}
                     <p><strong>Fecha:</strong> ${this.formatDateTimeExact(proforma.fecha_creacion)}</p>
                     ${proforma.alquiler ? `<p><strong>Alquiler:</strong> ${proforma.alquiler.duracion} ${proforma.alquiler.tipo}</p>` : ''}
                     <p><strong>Estado:</strong> <span class="status-badge status-${proforma.estado_compuesto.replace(/\s+/g, '-').toLowerCase()}">${proforma.estado_compuesto}</span></p>
@@ -1245,7 +1511,17 @@ class InventorySystem {
             <button type="button" class="btn btn-primary" onclick="inventorySystem.printProforma('${proformaId}')">
                 <i class="fas fa-print"></i> Imprimir
             </button>
-            ${proforma.estado_compuesto !== 'cumplido' ? `
+            ${saldo > 0 ? `
+                <button type="button" class="btn btn-info" onclick="inventorySystem.showPagoModal('${proformaId}')">
+                    <i class="fas fa-cash-register"></i> Registrar Pago
+                </button>
+            ` : ''}
+            ${!proforma.estado_retiro ? `
+                <button type="button" class="btn btn-warning" onclick="inventorySystem.showSalidaModal('${proformaId}')">
+                    <i class="fas fa-truck"></i> Registrar Salida
+                </button>
+            ` : ''}
+            ${(!proforma.fecha_cumplimiento) && proforma.estado_retiro ? `
                 <button type="button" class="btn btn-success" onclick="inventorySystem.showRecepcionModal('${proformaId}')">
                     <i class="fas fa-check"></i> Registrar Recepción
                 </button>
@@ -1286,6 +1562,7 @@ class InventorySystem {
                 <div class="client-info">
                     <h3>Cliente: ${proforma.cliente.nombre}</h3>
                     ${proforma.cliente.telefono ? `<p>Teléfono: ${proforma.cliente.telefono}</p>` : ''}
+                    ${proforma.cliente.correo ? `<p>Correo: ${proforma.cliente.correo}</p>` : ''}
                     ${proforma.cliente.direccion ? `<p>Dirección: ${proforma.cliente.direccion}</p>` : ''}
                     <p>Fecha: ${this.formatDateTimeExact(proforma.fecha_creacion)}</p>
                 </div>
@@ -1341,6 +1618,76 @@ class InventorySystem {
         `);
         printWindow.document.close();
         printWindow.print();
+    }
+
+    showPagoModal(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+        const pagado = (proforma.pagos || []).reduce((s, p) => s + (p.monto || 0), 0);
+        const saldo = Math.max((proforma.total || 0) - pagado, 0);
+        const html = `
+            <form id="pagoForm" class="form-compact">
+                <div class="form-section">
+                    <div class="form-section-title"><i class="fas fa-cash-register"></i> Registrar Pago</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Total</label>
+                            <div class="form-input" style="background: var(--gray-50);">$${(proforma.total||0).toLocaleString()}</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Pagado</label>
+                            <div class="form-input" style="background: var(--gray-50);">$${pagado.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="pagoMonto">Monto</label>
+                            <input id="pagoMonto" class="form-input" type="number" min="0" step="0.01" value="${saldo.toFixed(2)}" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="pagoMetodo">Método</label>
+                            <select id="pagoMetodo" class="form-input">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="tarjeta">Tarjeta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="pagoNota">Nota</label>
+                        <input id="pagoNota" class="form-input" type="text" placeholder="Referencia, comprobante, etc." />
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Pago</button>
+                </div>
+            </form>
+        `;
+        this.showModal(`Pago de ${proforma.numero}`, html, '');
+        document.getElementById('pagoForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.confirmarPago(proformaId);
+        });
+    }
+
+    confirmarPago(proformaId) {
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
+        const monto = Math.max(0, Number(document.getElementById('pagoMonto').value || 0));
+        if (!monto) { this.showNotification('Ingresa un monto válido.', 'warning'); return; }
+        const metodo = document.getElementById('pagoMetodo').value || 'efectivo';
+        const nota = (document.getElementById('pagoNota').value || '').trim();
+        proforma.pagos = proforma.pagos || [];
+        proforma.pagos.push({ fecha: new Date().toISOString(), monto, metodo, nota });
+
+        this.updateProformaEstadoCompuesto(proforma);
+        this.saveData();
+        this.closeModal();
+        this.loadProformas();
+        this.updateKPIs();
+        this.viewProforma(proformaId);
+        this.showNotification('Pago registrado.', 'success');
     }
 
     editItem(itemId) {
@@ -1781,13 +2128,13 @@ class InventorySystem {
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-file-invoice"></i> Seleccionar Proforma
-                    </div>
-                    <div class="form-group">
+                </div>
+                <div class="form-group">
                         <label for="proformaMovementSelect" class="form-label">Proforma *</label>
-                        <select id="proformaMovementSelect" class="form-input" required onchange="inventorySystem.loadProformaItems()">
-                            <option value="">Seleccionar proforma...</option>
-                            ${this.data.proformas.map(p => `<option value="${p.id}">${p.numero} - ${p.cliente.nombre}</option>`).join('')}
-                        </select>
+                    <select id="proformaMovementSelect" class="form-input" required onchange="inventorySystem.loadProformaItems()">
+                        <option value="">Seleccionar proforma...</option>
+                        ${this.data.proformas.map(p => `<option value="${p.id}">${p.numero} - ${p.cliente.nombre}</option>`).join('')}
+                    </select>
                     </div>
                 </div>
                 
@@ -1795,9 +2142,9 @@ class InventorySystem {
                 <div id="proformaItemsDisplay" style="display: none;">
                     <div class="form-section">
                         <div class="form-section-title">
-                            <i class="fas fa-list"></i> Ítems de la Proforma
-                        </div>
-                        <div id="proformaMovementItems"></div>
+                        <i class="fas fa-list"></i> Ítems de la Proforma
+                    </div>
+                    <div id="proformaMovementItems"></div>
                     </div>
                 </div>
                 
@@ -1807,23 +2154,23 @@ class InventorySystem {
                         <i class="fas fa-truck"></i> Detalles del Movimiento
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="movementTipo" class="form-label">Tipo de Movimiento *</label>
-                            <select id="movementTipo" class="form-input" required>
-                                <option value="">Seleccionar tipo...</option>
-                                <option value="salida">Salida (Entrega)</option>
-                                <option value="entrada">Entrada (Devolución)</option>
-                                <option value="mixto">Mixto (Salida y Entrada)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="movementFecha" class="form-label">Fecha del Movimiento *</label>
-                            <input type="date" id="movementFecha" class="form-input" required>
-                        </div>
+                <div class="form-group">
+                    <label for="movementTipo" class="form-label">Tipo de Movimiento *</label>
+                    <select id="movementTipo" class="form-input" required>
+                        <option value="">Seleccionar tipo...</option>
+                        <option value="salida">Salida (Entrega)</option>
+                        <option value="entrada">Entrada (Devolución)</option>
+                        <option value="mixto">Mixto (Salida y Entrada)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="movementFecha" class="form-label">Fecha del Movimiento *</label>
+                    <input type="date" id="movementFecha" class="form-input" required>
+                </div>
                     </div>
-                    <div class="form-group">
-                        <label for="movementNotas" class="form-label">Notas del Movimiento</label>
-                        <textarea id="movementNotas" class="form-input" rows="3" placeholder="Observaciones sobre el movimiento..."></textarea>
+                <div class="form-group">
+                    <label for="movementNotas" class="form-label">Notas del Movimiento</label>
+                    <textarea id="movementNotas" class="form-input" rows="3" placeholder="Observaciones sobre el movimiento..."></textarea>
                     </div>
                 </div>
                 
@@ -2119,10 +2466,78 @@ function addArregloRow(tipo = '', precio = '', descripcion = '') {
 }
 
 InventorySystem.prototype.showRecepcionModal = function(proformaId) {
-    const proforma = this.data.proformas.find(p => p.id === proformaId);
-    if (!proforma) return;
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
 
-    const html = `
+        // Construir HTML de ítems con datos completos desde inventario
+        const itemsHtml = proforma.items.map((pi) => {
+            const inv = this.data.items.find(i => i.id === pi.item_id) || {};
+            const unidad = inv.unidad || 'unidad';
+            const codigo = inv.codigo || 'N/A';
+            const categoria = inv.categoria || '';
+            const nombre = pi.nombre || inv.nombre || 'Ítem';
+            const solicitado = Number(pi.cantidad || 0);
+            return `
+                <div class="recepcion-item-card" data-item-id="${pi.item_id}">
+                    <div class="recepcion-item-header">
+                        <div class="item-info">
+                            <h4 class="item-name">${nombre}</h4>
+                            <div class="item-details">
+                                <span class="item-code">Código: ${codigo}</span>
+                                <span class="item-category">${categoria}</span>
+                </div>
+                        </div>
+                        <div class="item-status-indicator">
+                            <i class="fas fa-circle" style="color: var(--warning-400);"></i>
+                            <span>Pendiente</span>
+                        </div>
+                    </div>
+                    <div class="recepcion-item-content">
+                        <div class="quantity-info">
+                            <div class="quantity-box">
+                                <label class="quantity-label">Solicitado</label>
+                                <div class="quantity-value">${solicitado} ${unidad}</div>
+                            </div>
+                            <div class="quantity-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+                            <div class="quantity-box">
+                                <label class="quantity-label">Recibido</label>
+                                <input type="number" 
+                                       class="form-input quantity-input" 
+                                       min="0" 
+                                       max="${solicitado}" 
+                                       value="${solicitado}" 
+                                       data-item-id="${pi.item_id}" 
+                                       required
+                                       onchange="inventorySystem.updateRecepcionItemStatus(this)">
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <div class="form-group">
+                                <label class="form-label">Estado de Recepción</label>
+                                <select class="form-input status-select" data-item-id="${pi.item_id}" onchange="inventorySystem.updateRecepcionItemStatus(this)">
+                                    <option value="completo">✅ Completo</option>
+                                    <option value="parcial">⚠️ Parcial</option>
+                                    <option value="faltante">❌ Faltante</option>
+                                    <option value="devuelto">🔄 Devuelto</option>
+                                    <option value="perdido">💔 Perdido</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Observaciones</label>
+                                <input type="text" 
+                                       class="form-input" 
+                                       placeholder="Notas específicas del ítem..."
+                                       data-item-id="${pi.item_id}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const html = `
         <form id="recepcionForm" class="form-compact">
             <!-- Información de la Proforma -->
             <div class="form-section">
@@ -2130,7 +2545,7 @@ InventorySystem.prototype.showRecepcionModal = function(proformaId) {
                     <i class="fas fa-file-invoice"></i> Información de la Proforma
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
+                <div class="form-group">
                         <label class="form-label">Número de Proforma</label>
                         <div class="form-input" style="background: var(--primary-50); border-color: var(--primary-200); font-weight: 600; color: var(--primary-700);">
                             ${proforma.numero}
@@ -2157,8 +2572,8 @@ InventorySystem.prototype.showRecepcionModal = function(proformaId) {
                         </div>
                     </div>
                 </div>
-            </div>
-
+                </div>
+                
             <!-- Ítems a Recibir -->
             <div class="form-section">
                 <div class="form-section-title">
@@ -2168,82 +2583,20 @@ InventorySystem.prototype.showRecepcionModal = function(proformaId) {
                     </span>
                 </div>
                 
-                <div id="recepcionItemsContainer">
-                    ${proforma.items.map((item, index) => `
-                        <div class="recepcion-item-card" data-item-id="${item.item_id}">
-                            <div class="recepcion-item-header">
-                                <div class="item-info">
-                                    <h4 class="item-name">${item.nombre}</h4>
-                                    <div class="item-details">
-                                        <span class="item-code">Código: ${item.codigo || 'N/A'}</span>
-                                        <span class="item-category">${item.categoria}</span>
-                                    </div>
-                                </div>
-                                <div class="item-status-indicator">
-                                    <i class="fas fa-circle" style="color: var(--warning-400);"></i>
-                                    <span>Pendiente</span>
-                                </div>
+                <div id="recepcionItemsContainer">${itemsHtml}</div>
                             </div>
-                            
-                            <div class="recepcion-item-content">
-                                <div class="quantity-info">
-                                    <div class="quantity-box">
-                                        <label class="quantity-label">Solicitado</label>
-                                        <div class="quantity-value">${item.cantidad} ${item.unidad}</div>
-                                    </div>
-                                    <div class="quantity-arrow">
-                                        <i class="fas fa-arrow-right"></i>
-                                    </div>
-                                    <div class="quantity-box">
-                                        <label class="quantity-label">Recibido</label>
-                                        <input type="number" 
-                                               class="form-input quantity-input" 
-                                               min="0" 
-                                               max="${item.cantidad}" 
-                                               value="${item.cantidad}" 
-                                               data-item-id="${item.item_id}" 
-                                               required
-                                               onchange="inventorySystem.updateRecepcionItemStatus(this)">
-                                    </div>
-                                </div>
-                                
-                                <div class="status-section">
-                                    <div class="form-group">
-                                        <label class="form-label">Estado de Recepción</label>
-                                        <select class="form-input status-select" data-item-id="${item.item_id}" onchange="inventorySystem.updateRecepcionItemStatus(this)">
-                                            <option value="completo">✅ Completo</option>
-                                            <option value="parcial">⚠️ Parcial</option>
-                                            <option value="faltante">❌ Faltante</option>
-                                            <option value="devuelto">🔄 Devuelto</option>
-                                            <option value="perdido">💔 Perdido</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label class="form-label">Observaciones</label>
-                                        <input type="text" 
-                                               class="form-input" 
-                                               placeholder="Notas específicas del ítem..."
-                                               data-item-id="${item.item_id}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
+                
             <!-- Resumen de Recepción -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-clipboard-check"></i> Resumen de Recepción
-                </div>
+                            </div>
                 <div class="recepcion-summary">
                     <div class="summary-stats">
                         <div class="stat-item">
                             <div class="stat-number" id="totalItems">${proforma.items.length}</div>
                             <div class="stat-label">Total Ítems</div>
-                        </div>
+                            </div>
                         <div class="stat-item">
                             <div class="stat-number" id="completosItems">0</div>
                             <div class="stat-label">Completos</div>
@@ -2251,24 +2604,24 @@ InventorySystem.prototype.showRecepcionModal = function(proformaId) {
                         <div class="stat-item">
                             <div class="stat-number" id="parcialesItems">0</div>
                             <div class="stat-label">Parciales</div>
-                        </div>
+                </div>
                         <div class="stat-item">
                             <div class="stat-number" id="faltantesItems">0</div>
                             <div class="stat-label">Faltantes</div>
                         </div>
                     </div>
                 </div>
-            </div>
-
+                </div>
+                
             <!-- Información Adicional -->
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-notes-medical"></i> Información Adicional
                 </div>
                 <div class="form-row">
-                    <div class="form-group">
-                        <label for="recepcionFecha" class="form-label">Fecha de Recepción *</label>
-                        <input type="date" id="recepcionFecha" class="form-input" required>
+                <div class="form-group">
+                    <label for="recepcionFecha" class="form-label">Fecha de Recepción *</label>
+                    <input type="date" id="recepcionFecha" class="form-input" required>
                     </div>
                     <div class="form-group">
                         <label for="recepcionHora" class="form-label">Hora de Recepción</label>
@@ -2279,30 +2632,30 @@ InventorySystem.prototype.showRecepcionModal = function(proformaId) {
                     <label for="recepcionNotas" class="form-label">Notas Generales de Recepción</label>
                     <textarea id="recepcionNotas" class="form-input" rows="3" placeholder="Observaciones generales sobre la recepción, condiciones de los ítems, etc..."></textarea>
                 </div>
-            </div>
-            
-            <div class="form-actions">
+                </div>
+                
+                <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">
                     <i class="fas fa-times"></i> Cancelar
                 </button>
-                <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-success">
                     <i class="fas fa-check"></i> Confirmar Recepción
-                </button>
-            </div>
-        </form>
-    `;
+                    </button>
+                </div>
+            </form>
+        `;
 
-    this.showModal(`Registrar Recepción - ${proforma.numero}`, html);
-    
+        this.showModal(`Registrar Recepción - ${proforma.numero}`, html);
+        
     // Establecer fecha y hora actual
-    document.getElementById('recepcionFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('recepcionFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('recepcionHora').value = new Date().toTimeString().slice(0, 5);
-    
-    // Event listener para el formulario
-    document.getElementById('recepcionForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.confirmarRecepcion(proformaId);
-    });
+        
+        // Event listener para el formulario
+        document.getElementById('recepcionForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.confirmarRecepcion(proformaId);
+        });
     
     // Actualizar resumen inicial
     this.updateRecepcionSummary();
@@ -2393,63 +2746,63 @@ InventorySystem.prototype.updateRecepcionSummary = function() {
 };
 
 InventorySystem.prototype.confirmarRecepcion = function(proformaId) {
-    const proforma = this.data.proformas.find(p => p.id === proformaId);
-    if (!proforma) return;
+        const proforma = this.data.proformas.find(p => p.id === proformaId);
+        if (!proforma) return;
 
-    const recepcionNotas = document.getElementById('recepcionNotas').value;
-    const recepcionFecha = document.getElementById('recepcionFecha').value;
+        const recepcionNotas = document.getElementById('recepcionNotas').value;
+        const recepcionFecha = document.getElementById('recepcionFecha').value;
     const recepcionHora = document.getElementById('recepcionHora').value;
 
     // Combinar fecha y hora
     const fechaHoraCompleta = new Date(`${recepcionFecha}T${recepcionHora}:00`).toISOString();
 
-    const recepciones = [];
+        const recepciones = [];
     document.querySelectorAll('.recepcion-item-card').forEach(card => {
         const cantidadRecibida = parseInt(card.querySelector('.quantity-input').value) || 0;
         const estado = card.querySelector('.status-select').value;
         const observaciones = card.querySelector('input[placeholder*="Notas específicas"]').value;
         const itemId = card.dataset.itemId;
-        
-        recepciones.push({
-            item_id: itemId,
-            cantidad_solicitada: proforma.items.find(i => i.item_id === itemId).cantidad,
-            cantidad_recibida: cantidadRecibida,
+            
+            recepciones.push({
+                item_id: itemId,
+                cantidad_solicitada: proforma.items.find(i => i.item_id === itemId).cantidad,
+                cantidad_recibida: cantidadRecibida,
             estado: estado,
             observaciones: observaciones || null
+            });
         });
-    });
 
-    const recepcion = {
-        id: this.generateId(),
-        proforma_id: proformaId,
-        fecha: recepcionFecha,
+        const recepcion = {
+            id: this.generateId(),
+            proforma_id: proformaId,
+            fecha: recepcionFecha,
         hora: recepcionHora,
         fecha_hora_completa: fechaHoraCompleta,
-        notas: recepcionNotas,
-        items: recepciones,
-        created_at: new Date().toISOString()
-    };
+            notas: recepcionNotas,
+            items: recepciones,
+            created_at: new Date().toISOString()
+        };
 
-    if (!this.data.recepciones) {
-        this.data.recepciones = [];
-    }
-    this.data.recepciones.push(recepcion);
+        if (!this.data.recepciones) {
+            this.data.recepciones = [];
+        }
+        this.data.recepciones.push(recepcion);
 
     // Actualizar inventario solo con ítems recibidos
-    recepciones.forEach(rec => {
-        const item = this.data.items.find(i => i.id === rec.item_id);
+        recepciones.forEach(rec => {
+            const item = this.data.items.find(i => i.id === rec.item_id);
         if (item && rec.cantidad_recibida > 0) {
-            item.cantidad_total += rec.cantidad_recibida;
-            item.updated_at = new Date().toISOString();
-        }
-    });
+                item.cantidad_total += rec.cantidad_recibida;
+                item.updated_at = new Date().toISOString();
+            }
+        });
 
     // Actualizar estado de la proforma
-    proforma.estado_compuesto = 'cumplido';
-    proforma.fecha_cumplimiento = new Date().toISOString();
+        proforma.estado_compuesto = 'cumplido';
+        proforma.fecha_cumplimiento = new Date().toISOString();
 
     // Crear movimientos de inventario
-    recepciones.forEach(rec => {
+        recepciones.forEach(rec => {
         if (rec.cantidad_recibida > 0) {
             this.createMovement(
                 rec.item_id, 
@@ -2459,23 +2812,23 @@ InventorySystem.prototype.confirmarRecepcion = function(proformaId) {
                 `Estado: ${rec.estado}${rec.observaciones ? ` - ${rec.observaciones}` : ''}`
             );
         }
-    });
+        });
 
-    this.saveData();
+        this.saveData();
     this.logAudit('confirm_recepcion', `Confirmó recepción de proforma ${proforma.numero} - ${recepciones.length} ítems`);
 
-    this.closeModal();
-    this.loadProformas();
-    this.loadMovements();
-    this.updateKPIs();
-    this.showNotification('Recepción registrada exitosamente', 'success');
+        this.closeModal();
+        this.loadProformas();
+        this.loadMovements();
+        this.updateKPIs();
+        this.showNotification('Recepción registrada exitosamente', 'success');
 };
 
 InventorySystem.prototype.showRecepcionesModal = function() {
-    const recepciones = this.data.recepciones || [];
-    
-    const html = `
-        <div class="recepciones-view">
+        const recepciones = this.data.recepciones || [];
+        
+        const html = `
+            <div class="recepciones-view">
             <div class="form-section">
                 <div class="form-section-title">
                     <i class="fas fa-history"></i> Historial de Recepciones
@@ -2504,14 +2857,14 @@ InventorySystem.prototype.showRecepcionesModal = function() {
                         <div style="font-size: 1.5rem; color: var(--info-800); font-weight: 700;">${this.getRecepcionesEsteMes().length}</div>
                     </div>
                 </div>
-            </div>
-            
-            ${recepciones.length === 0 ? `
-                <div class="form-section" style="text-align: center; padding: 2rem; color: var(--gray-500);">
-                    <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <p>No hay recepciones registradas</p>
                 </div>
-            ` : `
+                
+                ${recepciones.length === 0 ? `
+                <div class="form-section" style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>No hay recepciones registradas</p>
+                    </div>
+                ` : `
                 <div class="form-section">
                     <div class="table-container">
                         <table class="data-table">
@@ -2559,25 +2912,25 @@ InventorySystem.prototype.getRecepcionesEsteMes = function() {
 
 InventorySystem.prototype.renderRecepcionesTable = function(recepciones) {
     return recepciones.map(recepcion => {
-        const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
+                                    const proforma = this.data.proformas.find(p => p.id === recepcion.proforma_id);
         const fechaHora = new Date(recepcion.created_at || recepcion.fecha);
         const estadoGeneral = this.getEstadoGeneralRecepcion(recepcion);
         
-        return `
-            <tr>
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                    return `
+                                        <tr>
+                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
                         <div style="font-weight: 600;">${this.formatDateWithTime(fechaHora.toISOString()).date}</div>
                         <div style="font-size: 0.75rem; color: var(--gray-500);">${this.formatDateWithTime(fechaHora.toISOString()).time}</div>
-                </td>
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                    ${proforma ? proforma.numero : 'Proforma eliminada'}
-                </td>
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                    ${proforma ? proforma.cliente.nombre : 'N/A'}
-                </td>
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                    ${recepcion.items.map(item => {
-                        const itemData = this.data.items.find(i => i.id === item.item_id);
+                                            </td>
+                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                                ${proforma ? proforma.numero : 'Proforma eliminada'}
+                                            </td>
+                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                                ${proforma ? proforma.cliente.nombre : 'N/A'}
+                                            </td>
+                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                                ${recepcion.items.map(item => {
+                                                    const itemData = this.data.items.find(i => i.id === item.item_id);
                         return `<div style="margin-bottom: 0.25rem;">
                             <span style="font-weight: 500;">${itemData ? itemData.nombre : 'Ítem eliminado'}</span><br>
                             <span style="font-size: 0.75rem; color: var(--gray-600);">
@@ -2588,9 +2941,9 @@ InventorySystem.prototype.renderRecepcionesTable = function(recepciones) {
                 </td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
                     <span class="status-badge status-${estadoGeneral.toLowerCase()}">${estadoGeneral}</span>
-                </td>
-                <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
-                    ${recepcion.notas || 'Sin notas'}
+                                            </td>
+                                            <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
+                                                ${recepcion.notas || 'Sin notas'}
                 </td>
                 <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="inventorySystem.viewRecepcionDetail('${recepcion.id}')">
@@ -2708,19 +3061,19 @@ InventorySystem.prototype.viewRecepcionDetail = function(recepcionId) {
                                         </td>
                                         <td style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100);">
                                             ${item.observaciones || '-'}
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
             </div>
-        </div>
-    `;
-    
+            </div>
+        `;
+
     this.showModal(`Detalle de Recepción - ${proforma ? proforma.numero : 'N/A'}`, html, `
-        <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cerrar</button>
+            <button type="button" class="btn btn-secondary" onclick="inventorySystem.closeModal()">Cerrar</button>
         <button type="button" class="btn btn-primary" onclick="inventorySystem.printRecepcion('${recepcionId}')">
             <i class="fas fa-print"></i> Imprimir
         </button>
@@ -2852,4 +3205,5 @@ InventorySystem.prototype.printRecepcion = function(recepcionId) {
 
 // Inicializar sistema
 const inventorySystem = new InventorySystem();
+
 

@@ -42,3 +42,4 @@ SillasMesas/
 ├── logo.png  ← Aquí va tu logo
 └── README.md
 ```
+
